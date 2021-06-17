@@ -1,0 +1,3 @@
+graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small
+data_shuffle_seed: 9
+model_dict_dir: /home/abdel/IRIS_HEP/interaction_networks/trained_models/IN_pyg_small_state_dict.pt
