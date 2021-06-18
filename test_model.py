@@ -69,7 +69,7 @@ def main():
     # hls model
     config, reader, layer_list = prep_GNN_for_hls(model)
     hls_model = HLSModel_GNN(config, reader, layer_list)
-    hls_model.inputs = ['Re', 'Rn', 'edge_index']
+    hls_model.inputs = ['edge_attr', 'node_attr', 'edge_index']
     hls_model.outputs = ['layer6_out_L']
     hls_model.compile()
     
@@ -129,14 +129,3 @@ def main():
 #%% 
 if __name__=='__main__':
     main()
-
-
-            
-    
-    
-    
-    
-    
-    
-    
-    
