@@ -49,7 +49,8 @@ def prep_GNN_for_hls(model):
     'name': 'edge_attr',
     'class_name': 'InputLayer',
     'input_shape': input_shapes['EdgeAttr'],
-    'inputs': 'input'
+    'inputs': 'input',
+    'dim_names': ['N_EDGE', 'EDGE_DIM']
     }
     layer_list.append(EdgeAttr_layer)
 
@@ -57,7 +58,8 @@ def prep_GNN_for_hls(model):
     'name': 'node_attr',
     'class_name': 'InputLayer',
     'input_shape': input_shapes['NodeAttr'],
-    'inputs': 'input'
+    'inputs': 'input',
+    'dim_names': ['N_NODE', 'NODE_DIM']
     }
     layer_list.append(NodeAttr_layer)
 
