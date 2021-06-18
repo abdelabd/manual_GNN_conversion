@@ -8,6 +8,7 @@ Created on Wed Jun 16 14:48:38 2021
 
 from hls4ml.utils.config import create_vivado_config
 from hls4ml.converters.pyg_to_hls import PygModelReader
+from hls4ml.model.hls_layers import HLSType
 
 def prep_GNN_for_hls(model):
     n = 112 # num_nodes
@@ -25,10 +26,10 @@ def prep_GNN_for_hls(model):
     }
     config = create_vivado_config(**config)
     config['PytorchModel'] = model
-    config['n_nodes'] = n
-    config['n_edges'] = m
-    config['node_dim'] = p
-    config['edge_dim'] = q
+    config['n_node'] = n
+    config['n_edge'] = m
+    config['n_features'] = p
+    config['e_features'] = q
 
     model_config = {
     'Precision': 'ap_fixed<16,6>',
@@ -44,7 +45,7 @@ def prep_GNN_for_hls(model):
     output_shapes = {}
 
     EdgeAttr_layer = {
-    'name': 'Re',
+    'name': 'edge_attr',
     'class_name': 'InputLayer',
     'input_shape': input_shapes['EdgeAttr'],
     'inputs': 'input'
@@ -52,7 +53,7 @@ def prep_GNN_for_hls(model):
     layer_list.append(EdgeAttr_layer)
 
     NodeAttr_layer = {
-    'name': 'Rn',
+    'name': 'node_attr',
     'class_name': 'InputLayer',
     'input_shape': input_shapes['NodeAttr'],
     'inputs': 'input'
@@ -63,19 +64,20 @@ def prep_GNN_for_hls(model):
     'name': 'edge_index',
     'class_name': 'InputLayer',
     'input_shape': input_shapes['EdgeIndex'],
-    'inputs': 'input'
+    'inputs': 'input',
+    'dim_names': ['TWO', 'N_EDGE']
     }
     layer_list.append(EdgeIndex_layer)
 
     R1_layer = {
     'name': 'R1',
     'class_name': 'EdgeBlock',
-    'n_nodes': n,
-    'n_edges': m,
+    'n_node': n,
+    'n_edge': m,
     'node_dim': p,
     'edge_dim': q,
-    'out_features': q,
-    'inputs': ['Re', 'Rn', 'edge_index'],
+    'out_dim': q,
+    'inputs': ['edge_attr', 'node_attr', 'edge_index'],
     'outputs': ["layer4_out_L", "layer4_out_Q"]
     }
     layer_list.append(R1_layer)
@@ -83,12 +85,12 @@ def prep_GNN_for_hls(model):
     O_layer = {
     'name': 'O',
     'class_name': 'NodeBlock',
-    'n_nodes': n,
-    'n_edges': m,
+    'n_node': n,
+    'n_edge': m,
     'node_dim': p,
     'edge_dim': q,
-    'out_features': p,
-    'inputs': ['Rn', "layer4_out_Q"],
+    'out_dim': p,
+    'inputs': ['node_attr', "layer4_out_Q"],
     'outputs': ["layer5_out_P"]
     }
     layer_list.append(O_layer)
@@ -96,11 +98,11 @@ def prep_GNN_for_hls(model):
     R2_layer = {
     'name': 'R2',
     'class_name': 'EdgeBlock',
-    'n_nodes': n,
-    'n_edges': m,
+    'n_node': n,
+    'n_edge': m,
     'node_dim': p,
     'edge_dim': q,
-    'out_features': 1,
+    'out_dim': 1,
     'inputs': ['layer4_out_L', 'layer5_out_P', 'edge_index'],
     'outputs': ['layer6_out_L', 'layer6_out_Q']
     }
