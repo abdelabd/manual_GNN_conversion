@@ -25,10 +25,10 @@ def prep_GNN_for_hls(model):
     }
     config = create_vivado_config(**config)
     config['PytorchModel'] = model
-    config['n_node'] = n
-    config['n_edge'] = m
-    config['n_features'] = p
-    config['e_features'] = q
+    config['n_nodes'] = n
+    config['n_edges'] = m
+    config['node_dim'] = p
+    config['edge_dim'] = q
 
     model_config = {
     'Precision': 'ap_fixed<16,6>',
@@ -70,10 +70,10 @@ def prep_GNN_for_hls(model):
     R1_layer = {
     'name': 'R1',
     'class_name': 'EdgeBlock',
-    'n_node': n,
-    'n_edge': m,
-    'n_features': p,
-    'e_features': q,
+    'n_nodes': n,
+    'n_edges': m,
+    'node_dim': p,
+    'edge_dim': q,
     'out_features': q,
     'inputs': ['Re', 'Rn', 'edge_index'],
     'outputs': ["layer4_out_L", "layer4_out_Q"]
@@ -83,10 +83,10 @@ def prep_GNN_for_hls(model):
     O_layer = {
     'name': 'O',
     'class_name': 'NodeBlock',
-    'n_node': n,
-    'n_edge': m,
-    'n_features': p,
-    'e_features': q,
+    'n_nodes': n,
+    'n_edges': m,
+    'node_dim': p,
+    'edge_dim': q,
     'out_features': p,
     'inputs': ['Rn', "layer4_out_Q"],
     'outputs': ["layer5_out_P"]
@@ -96,10 +96,10 @@ def prep_GNN_for_hls(model):
     R2_layer = {
     'name': 'R2',
     'class_name': 'EdgeBlock',
-    'n_node': n,
-    'n_edge': m,
-    'n_features': p,
-    'e_features': q,
+    'n_nodes': n,
+    'n_edges': m,
+    'node_dim': p,
+    'edge_dim': q,
     'out_features': 1,
     'inputs': ['layer4_out_L', 'layer5_out_P', 'edge_index'],
     'outputs': ['layer6_out_L', 'layer6_out_Q']
