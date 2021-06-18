@@ -28,8 +28,8 @@ def prep_GNN_for_hls(model):
     config['PytorchModel'] = model
     config['n_node'] = n
     config['n_edge'] = m
-    config['n_features'] = p
-    config['e_features'] = q
+    config['node_dim'] = p
+    config['edge_dim'] = q
 
     model_config = {
     'Precision': 'ap_fixed<16,6>',
