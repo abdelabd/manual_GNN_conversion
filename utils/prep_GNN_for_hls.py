@@ -9,6 +9,7 @@ Created on Wed Jun 16 14:48:38 2021
 from hls4ml.utils.config import create_vivado_config
 from hls4ml.converters.pyg_to_hls import PygModelReader
 from hls4ml.model.hls_layers import HLSType
+import os
 
 def prep_GNN_for_hls(model):
     n = 112 # num_nodes
@@ -18,7 +19,7 @@ def prep_GNN_for_hls(model):
     r = 4 # effect_dim
 
     config = {
-    "output_dir": "/home/abdel/IRIS_HEP/GNN_hls_layers/hls_output",
+    "output_dir": os.getcwd() + "/hls_output",
     "project_name": "myproject",
     "fpga_part": 'xcku115-flvb2104-2-i',
     "clock_period": 5,
