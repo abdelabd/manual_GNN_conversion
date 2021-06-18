@@ -1,0 +1,34 @@
+name: pyg_to_hls
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.6
+  - cudatoolkit=11.0
+  - pandas<0.26
+  - matplotlib
+  - jupyter
+  - nbconvert
+  - uproot
+  - scipy
+  - tqdm
+  - scikit-learn
+  - spyder
+  - pip
+  - git
+  - pip:
+    - --find-links https://download.pytorch.org/whl/torch_stable.html 
+    - --find-links https://pytorch-geometric.com/whl/torch-1.7.0+cpu.html
+    - torch==1.7.1+cpu
+    - torchvision==0.8.2+cpu
+    - torchaudio===0.7.2
+    - torch-cluster
+    - torch-scatter
+    - torch-sparse
+    - torch-spline-conv
+    - torch-geometric
+    - git+https://github.com/LAL/trackml-library
+    - kaggle
+    - git+https://github.com/abdelabd/hls4ml@pyg_to_hls
+
