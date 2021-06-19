@@ -121,7 +121,7 @@ def main():
     # call top function
     main_dir = os.getcwd()
     os.chdir(hls_model.config.get_output_dir() + '/firmware')
-    top_func(Re, Rn, edge_index, hls_pred_noact, ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()))
+    top_func(Re_c, Rn_c, edge_index_c, hls_pred_c, ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()))
     def sigmoid(x):
         return 1/(1+np.exp(-x))
     hls_pred = sigmoid(hls_pred_noact)
