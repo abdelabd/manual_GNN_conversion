@@ -41,10 +41,6 @@ def main():
         config = yaml.load(f, yaml.FullLoader)
     
     # data
-    try:
-        data_shuffle_seed = config['data_shuffle_seed']
-    except KeyError: 
-        data_shuffle_seed = 9
     graph_indir = config['graph_indir'] 
     graph_files = np.array(os.listdir(graph_indir))
     graph_files = np.array([os.path.join(graph_indir, graph_file)
@@ -53,9 +49,7 @@ def main():
                    for filename in graph_files]
     n_graphs = len(graph_files)
     IDs = np.arange(n_graphs)
-    np.random.seed(data_shuffle_seed)
-    np.random.shuffle(IDs)
-    params = {'batch_size': 1, 'shuffle': True, 'num_workers': 6}
+    params = {'batch_size': 1, 'shuffle': False, 'num_workers': 6}
     dataset = GraphDataset(graph_files=graph_files[IDs])
     
     
@@ -109,7 +103,7 @@ def main():
     top_func = getattr(top_func_lib, 'myproject_float')
     top_func.restype = None
     top_func.argtypes = [npc.ndpointer(Re_ctype), npc.ndpointer(Rn_ctype), npc.ndpointer(edge_index_ctype ), npc.ndpointer(hls_pred_ctype),
-                     ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
+                         ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
     
     # call top function
     main_dir = os.getcwd()
@@ -119,6 +113,8 @@ def main():
         return 1/(1+np.exp(-x))
     hls_pred = sigmoid(hls_pred_noact)
     
+    print(hls_pred)
+    print(torch_pred)
     #save outputs 
     os.chdir(main_dir)
     np.savetxt('target.csv', target, delimiter=',')
