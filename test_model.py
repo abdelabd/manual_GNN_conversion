@@ -93,22 +93,29 @@ def main():
     hls_pred_noact = np.zeros(shape=(torch_pred.shape[0],)).astype(np.float32) # <--output of hls_model sent here, noact = noactivation
     
     # define ctypes
-    Re_ctype = ctypes.c_float
-    Rn_ctype = ctypes.c_float
-    edge_index_ctype = ctypes.c_int
-    hls_pred_ctype = ctypes.c_float
+    Re_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Re_1D)))
+    Rn_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Rn_1D)))
+    edge_index_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(edge_index_1D)))
+    hls_pred_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(hls_pred_noact)))
+    
+    # sample data (C-arrays)
+    Re_c = Re_1D.ctypes.data_as(Re_ctype)
+    Rn_c = Rn_1D.ctypes.data_as(Rn_ctype)
+    edge_index_c = edge_index_1D.ctypes.data_as(edge_index_ctype)
+    hls_pred_c = hls_pred_noact.ctypes.data_as(hls_pred_ctype)
     
     # get top function, set up ctypes
-    top_func_lib = hls_model._top_function_lib
+    libpath = 'hls_output/firmware/myproject-WITH_SAVE.so'
+    top_func_lib = ctypes.cdll.LoadLibrary(libpath)
     top_func = getattr(top_func_lib, 'myproject_float')
     top_func.restype = None
-    top_func.argtypes = [npc.ndpointer(Re_ctype), npc.ndpointer(Rn_ctype), npc.ndpointer(edge_index_ctype ), npc.ndpointer(hls_pred_ctype),
+    top_func.argtypes = [Re_ctype, Rn_ctype, edge_index_ctype, hls_pred_ctype,
                          ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
-    
+
     # call top function
     main_dir = os.getcwd()
     os.chdir(hls_model.config.get_output_dir() + '/firmware')
-    top_func(Re, Rn, edge_index, hls_pred_noact, ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()))
+    top_func(Re_c, Rn_c, edge_index_c, hls_pred_c, ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()))
     def sigmoid(x):
         return 1/(1+np.exp(-x))
     hls_pred = sigmoid(hls_pred_noact)
@@ -125,3 +132,14 @@ def main():
 #%% 
 if __name__=='__main__':
     main()
+
+
+            
+    
+    
+    
+    
+    
+    
+    
+    
