@@ -1,3 +1,2 @@
 graph_indir: trackml_data/processed_plus_pyg_small
-data_shuffle_seed: 9
 model_dict_dir: trained_models/IN_pyg_small_state_dict.pt

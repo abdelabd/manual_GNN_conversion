@@ -8,7 +8,7 @@ Created on Wed Jun 16 22:14:23 2021
 import os 
 import yaml 
 import argparse
-
+import glob
 
 import ctypes
 import numpy.ctypeslib as npc
@@ -41,10 +41,6 @@ def main():
         config = yaml.load(f, yaml.FullLoader)
     
     # data
-    try:
-        data_shuffle_seed = config['data_shuffle_seed']
-    except KeyError: 
-        data_shuffle_seed = 9
     graph_indir = config['graph_indir'] 
     graph_files = np.array(os.listdir(graph_indir))
     graph_files = np.array([os.path.join(graph_indir, graph_file)
@@ -53,9 +49,7 @@ def main():
                    for filename in graph_files]
     n_graphs = len(graph_files)
     IDs = np.arange(n_graphs)
-    np.random.seed(data_shuffle_seed)
-    np.random.shuffle(IDs)
-    params = {'batch_size': 1, 'shuffle': True, 'num_workers': 6}
+    params = {'batch_size': 1, 'shuffle': False, 'num_workers': 6}
     dataset = GraphDataset(graph_files=graph_files[IDs])
     
     
@@ -111,23 +105,30 @@ def main():
     hls_pred_c = hls_pred_noact.ctypes.data_as(hls_pred_ctype)
     
     # get top function, set up ctypes
-    libpath = '/home/abdel/IRIS_HEP/GNN_hls_layers/hls_output/firmware/myproject-WITH_SAVE.so'
+    main_dir = os.getcwd()
+    list_of_so_files = glob.glob(os.path.join(hls_model.config.get_output_dir(), 'firmware/myproject-*.so'))
+    libpath = max(list_of_so_files, key=os.path.getctime) # get latest *.so file
+    print('loading shared library', libpath)
     top_func_lib = ctypes.cdll.LoadLibrary(libpath)
+
+    os.chdir(os.path.join(hls_model.config.get_output_dir(), 'firmware'))
     top_func = getattr(top_func_lib, 'myproject_float')
     top_func.restype = None
     top_func.argtypes = [Re_ctype, Rn_ctype, edge_index_ctype, hls_pred_ctype,
-                     ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
+                         ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
 
     # call top function
-    main_dir = os.getcwd()
-    os.chdir(hls_model.config.get_output_dir() + '/firmware')
     top_func(Re_c, Rn_c, edge_index_c, hls_pred_c, ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()))
+
     def sigmoid(x):
         return 1/(1+np.exp(-x))
     hls_pred = sigmoid(hls_pred_noact)
     
-    #save outputs 
+    print(hls_pred)
+    print(torch_pred)
+    #save outputs
     os.chdir(main_dir)
+
     np.savetxt('target.csv', target, delimiter=',')
     np.savetxt('torch_pred.csv', torch_pred, delimiter=',')
     np.savetxt('hls_pred_nosigmoid.csv', hls_pred_noact, delimiter=',')
