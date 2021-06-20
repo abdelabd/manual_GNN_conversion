@@ -105,11 +105,13 @@ def main():
     hls_pred_c = hls_pred_noact.ctypes.data_as(hls_pred_ctype)
     
     # get top function, set up ctypes
-    list_of_files = glob.glob('hls_output/firmware/myproject-*.so')
-    libpath = max(list_of_files, key=os.path.getctime) # get latest file
+    main_dir = os.getcwd()
+    list_of_so_files = glob.glob(os.path.join(hls_model.config.get_output_dir(), 'firmware/myproject-*.so'))
+    libpath = max(list_of_so_files, key=os.path.getctime) # get latest *.so file
     print('loading shared library', libpath)
-
     top_func_lib = ctypes.cdll.LoadLibrary(libpath)
+
+    os.chdir(os.path.join(hls_model.config.get_output_dir(), 'firmware'))
     top_func = getattr(top_func_lib, 'myproject_float')
     top_func.restype = None
     top_func.argtypes = [Re_ctype, Rn_ctype, edge_index_ctype, hls_pred_ctype,
@@ -124,7 +126,8 @@ def main():
     
     print(hls_pred)
     print(torch_pred)
-    #save outputs 
+    #save outputs
+    os.chdir(main_dir)
 
     np.savetxt('target.csv', target, delimiter=',')
     np.savetxt('torch_pred.csv', torch_pred, delimiter=',')
