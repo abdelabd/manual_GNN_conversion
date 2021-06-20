@@ -8,7 +8,7 @@ Created on Wed Jun 16 22:14:23 2021
 import os 
 import yaml 
 import argparse
-
+import glob
 
 import ctypes
 import numpy.ctypeslib as npc
@@ -105,7 +105,10 @@ def main():
     hls_pred_c = hls_pred_noact.ctypes.data_as(hls_pred_ctype)
     
     # get top function, set up ctypes
-    libpath = 'hls_output/firmware/myproject-WITH_SAVE.so'
+    list_of_files = glob.glob('hls_output/firmware/myproject-*.so')
+    libpath = max(list_of_files, key=os.path.getctime) # get latest file
+    print('loading shared library', libpath)
+
     top_func_lib = ctypes.cdll.LoadLibrary(libpath)
     top_func = getattr(top_func_lib, 'myproject_float')
     top_func.restype = None
@@ -113,9 +116,8 @@ def main():
                          ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
 
     # call top function
-    main_dir = os.getcwd()
-    os.chdir(hls_model.config.get_output_dir() + '/firmware')
     top_func(Re_c, Rn_c, edge_index_c, hls_pred_c, ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()))
+
     def sigmoid(x):
         return 1/(1+np.exp(-x))
     hls_pred = sigmoid(hls_pred_noact)
@@ -123,7 +125,7 @@ def main():
     print(hls_pred)
     print(torch_pred)
     #save outputs 
-    os.chdir(main_dir)
+
     np.savetxt('target.csv', target, delimiter=',')
     np.savetxt('torch_pred.csv', torch_pred, delimiter=',')
     np.savetxt('hls_pred_nosigmoid.csv', hls_pred_noact, delimiter=',')
