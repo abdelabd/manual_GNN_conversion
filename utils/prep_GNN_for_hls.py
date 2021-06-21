@@ -23,7 +23,7 @@ def prep_GNN_for_hls(model):
     "project_name": "myproject",
     "fpga_part": 'xcku115-flvb2104-2-i',
     "clock_period": 5,
-    "io_type": "io_parallel"
+    "io_type": "io_parallel",
     }
     config = create_vivado_config(**config)
     config['PytorchModel'] = model
@@ -31,6 +31,11 @@ def prep_GNN_for_hls(model):
     config['n_edge'] = m
     config['node_dim'] = p
     config['edge_dim'] = q
+    config['InputShape'] = {
+            'EdgeAttr': [m, q],
+            'NodeAttr': [n, p],
+            'EdgeIndex': [2, m]
+    }
 
     model_config = {
     'Precision': 'ap_fixed<16,6>',
@@ -42,7 +47,7 @@ def prep_GNN_for_hls(model):
 
     layer_list = []
     reader = PygModelReader(config)
-    input_shapes = reader.input_shapes
+    input_shapes = reader.input_shape
     output_shapes = {}
 
     EdgeAttr_layer = {
