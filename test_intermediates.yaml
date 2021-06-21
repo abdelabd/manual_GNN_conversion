@@ -1,0 +1,2 @@
+graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small
+save_dir: /home/abdel/IRIS_HEP/GNN_hls_layers/hls_output/inputs_and_predictions
