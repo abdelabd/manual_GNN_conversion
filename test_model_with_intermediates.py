@@ -161,13 +161,13 @@ def predict_with_save(hls_model, data, out_dim, save_dir): #hls_model must be co
     np.savetxt(save_dir+"/hls_"+"out.csv", out, delimiter=',')
     
     os.remove("edge_attr.csv")
-    np.savetxt(save_dir+"input_"+"edge_attr.csv", Re, delimiter=",")
+    np.savetxt(save_dir+"/input_"+"edge_attr.csv", Re, delimiter=",")
     
     os.remove("edge_index.csv")
-    np.savetxt(save_dir+"input_"+"edge_index.csv", edge_index, delimiter=",")
+    np.savetxt(save_dir+"/input_"+"edge_index.csv", edge_index, delimiter=",")
     
     os.remove("node_attr.csv")
-    np.savetxt(save_dir+"input_"+"node_attr.csv", Rn, delimiter=",")
+    np.savetxt(save_dir+"/input_"+"node_attr.csv", Rn, delimiter=",")
 
 
 #%%
