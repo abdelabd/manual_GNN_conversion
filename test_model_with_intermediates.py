@@ -9,6 +9,7 @@ Created on Mon Jun 21 17:20:17 2021
 import os 
 import yaml 
 import argparse
+import shutil
 
 import ctypes
 import numpy.ctypeslib as npc
@@ -88,7 +89,7 @@ def parse_args():
 def sigmoid(x):
     return 1/(1+np.exp(-x))
 
-def predict_with_save(hls_model, data, out_dim, save_dir): #hls_model must be compiled
+def predict_with_save(hls_model, data, out_dim, save_dir): #hls_model must be compiled already
     # torch data
     Rn_T, Re_T, edge_index_T = data.x, data.edge_attr, data.edge_index
     
@@ -113,8 +114,12 @@ def predict_with_save(hls_model, data, out_dim, save_dir): #hls_model must be co
     hls_pred_noact_c = hls_pred_noact.ctypes.data_as(hls_pred_ctype)
     
     # get hls_model top function    
+    shutil.copyfile(os.getcwd()+"/myproject_with_save.cpp", hls_model.config.get_output_dir()+"/firmware/myproject_with_save.cpp")
+    shutil.copyfile(os.getcwd()+"/build_lib_with_save.sh", hls_model.config.get_output_dir()+"/build_lib_with_save.sh")
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+    
     main_dir = os.getcwd()
-    hls_model.compile()
     os.chdir(hls_model.config.get_output_dir())
     ret_val = os.system("bash build_lib_with_save.sh")
     lib_path = hls_model.config.get_output_dir() + "/firmware/myproject-WITH_SAVE.so"
@@ -129,7 +134,7 @@ def predict_with_save(hls_model, data, out_dim, save_dir): #hls_model must be co
     # call top_function
     os.chdir(hls_model.config.get_output_dir()+"/firmware")
     top_func(Re_c, Rn_c, edge_index_c, hls_pred_noact_c, ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()), ctypes.byref(ctypes.c_ushort()))
-    
+        
     # get+save intermediates and outputs
     L_1D = pd.read_csv("edge_update_1.csv", header=None).to_numpy()
     L = np.reshape(L_1D, newshape=Re.shape)
@@ -209,8 +214,9 @@ def main():
     hls_model.inputs = ['edge_attr', 'node_attr', 'edge_index']
     hls_model.outputs = ['layer6_out_L']
     hls_model.graph['edge_index'].precision['input3_t'] = HLSType('input3_t', IntegerPrecisionType(width=32, signed=False))
-    #hls_model.compile()
-    
+    hls_model.compile()
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
 
     # normal torch prediction
     model_pred = model(data).detach().cpu().numpy()
