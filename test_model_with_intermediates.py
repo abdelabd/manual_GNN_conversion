@@ -201,7 +201,7 @@ def main():
 
     # torch model
     model = InteractionNetwork_pyg()
-    model_dict = torch.load("IN_pyg_small_state_dict.pt")
+    model_dict = torch.load("trained_models/IN_pyg_small_state_dict.pt")
     model.load_state_dict(model_dict)
     del model_dict
 
