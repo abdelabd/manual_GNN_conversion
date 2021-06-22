@@ -94,6 +94,13 @@ def main():
     edge_index_1D = np.reshape(edge_index, newshape=(edge_index.shape[0]*edge_index.shape[1])).astype(np.float32)
     hls_pred_noact = np.zeros(shape=(torch_pred.shape[0],)).astype(np.float32) # <--output of hls_model sent here, noact = noactivation
     
+    # add testbench data
+    os.makedirs('tb_data',exist_ok=True)
+    np.savetxt('tb_data/input_edge_data.dat', Re_1D.reshape(1, -1), fmt='%f', delimiter=' ')
+    np.savetxt('tb_data/input_node_data.dat', Rn_1D.reshape(1, -1), fmt='%f', delimiter=' ')
+    np.savetxt('tb_data/input_edge_index.dat', edge_index_1D.reshape(1, -1), fmt='%f', delimiter=' ')
+    np.savetxt('tb_data/output_predictions.dat', torch_pred.reshape(1, -1), fmt='%f', delimiter=' ')
+    
     # define ctypes
     Re_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Re_1D)))
     Rn_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Rn_1D)))
