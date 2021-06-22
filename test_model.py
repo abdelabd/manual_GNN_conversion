@@ -20,6 +20,7 @@ from hls4ml.model.hls_model import HLSModel_GNN
 from hls4ml.utils.config import create_vivado_config
 from hls4ml.writer.vivado_writer import VivadoWriter_GNN
 from hls4ml.converters.pyg_to_hls import PygModelReader
+from hls4ml.model.hls_layers import HLSType, IntegerPrecisionType
 
 # locals
 from utils.prep_GNN_for_hls import prep_GNN_for_hls
