@@ -68,8 +68,6 @@ def main():
     hls_model.inputs = ['edge_attr', 'node_attr', 'edge_index']
     hls_model.outputs = ['layer6_out_L']
     hls_model.graph['edge_index'].precision['input3_t'] = HLSType('input3_t', IntegerPrecisionType(width=32, signed=False))
-    hls_model.compile()
-    
     
     # sample data (torch.Tensor)
     Rn_T, Re_T, edge_index_T, target_T = load_sample(dataset)
@@ -101,7 +99,8 @@ def main():
     np.savetxt('tb_data/input_node_data.dat', Rn_1D.reshape(1, -1), fmt='%f', delimiter=' ')
     np.savetxt('tb_data/input_edge_index.dat', edge_index_1D.reshape(1, -1), fmt='%f', delimiter=' ')
     np.savetxt('tb_data/output_predictions.dat', torch_pred.reshape(1, -1), fmt='%f', delimiter=' ')
-    
+    hls_model.compile()    
+
     # define ctypes
     Re_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Re_1D)))
     Rn_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Rn_1D)))

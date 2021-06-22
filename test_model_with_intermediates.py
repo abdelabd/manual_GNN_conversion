@@ -43,6 +43,7 @@ class model_wrapper():
         self.model = model
     
     def EdgeBlock_forward(self, block, Re, Rn, edge_index, out_dim):
+        lvectors = torch.zeros((Re.shape[0], Re.shape[1]+2*Rn.shape[1]))
         L = torch.zeros((Re.shape[0], out_dim))
         Q = torch.zeros((Rn.shape[0], out_dim))              
         for i in range(Re.shape[0]):
@@ -55,10 +56,11 @@ class model_wrapper():
             
             l_logits = torch.cat((x_i, x_j), dim=0)
             l = torch.cat((l_logits, edge_attr), dim=0)
+            lvectors[i] = l
             L[i] = block(l)
             for j in range(out_dim):
                 Q[r,j] += L[i,j]
-        return L, Q
+        return L, Q, lvectors
         
     def NodeBlock_forward(self, block, Rn, Q, out_dim):
         P = torch.zeros((Rn.shape[0], out_dim))
@@ -72,11 +74,11 @@ class model_wrapper():
         Re = data.edge_attr
         edge_index = data.edge_index
         
-        L, Q = self.EdgeBlock_forward(self.model.R1, Re, Rn, edge_index, out_dim=4) #IN_edge_module_1
+        L, Q, lvectors_dim4 = self.EdgeBlock_forward(self.model.R1, Re, Rn, edge_index, out_dim=4) #IN_edge_module_1
         P = self.NodeBlock_forward(self.model.O, Rn, Q, out_dim=3) #IN_node_module
-        L_out, Q_out = self.EdgeBlock_forward(self.model.R2, L, P, edge_index, out_dim=1) #IN_edge_module
+        L_out, Q_out, lvectors_dim1 = self.EdgeBlock_forward(self.model.R2, L, P, edge_index, out_dim=1) #IN_edge_module
         out = torch.sigmoid(L_out)
-        return L, Q, P, L_out, Q_out, out
+        return L, Q, P, L_out, Q_out, out, lvectors_dim4, lvectors_dim1
 
 #%% helper functions
 
@@ -164,7 +166,17 @@ def predict_with_save(hls_model, data, out_dim, save_dir): #hls_model must be co
     out_1D = sigmoid(L_out_1D)
     out = np.reshape(out_1D, newshape=L_out.shape)
     np.savetxt(save_dir+"/hls_"+"out.csv", out, delimiter=',')
-    
+
+    lvectors_dim4 = pd.read_csv("lvectors_dim4.csv", header=None).to_numpy()
+    #lvectors_dim4 = np.around(lvectors_dim4, decimals=3)
+    os.remove("lvectors_dim4.csv")
+    np.savetxt(save_dir+"/hls_"+"lvectors_dim4.csv", lvectors_dim4, delimiter=",",fmt='%.3e')
+
+    lvectors_dim1 = pd.read_csv("lvectors_dim1.csv", header=None).to_numpy()
+    #lvectors_dim1 = np.around(lvectors_dim1, decimals=3)
+    os.remove("lvectors_dim1.csv")
+    np.savetxt(save_dir + "/hls_" + "lvectors_dim1.csv", lvectors_dim1, delimiter=",",fmt='%.3e')
+
     os.remove("edge_attr.csv")
     np.savetxt(save_dir+"/input_"+"edge_attr.csv", Re, delimiter=",")
     
@@ -222,19 +234,25 @@ def main():
     model_pred = model(data).detach().cpu().numpy()
 
     # wrapper torch prediction 
-    L, Q, P, L_out, Q_out, out = torch_model_TB.forward(data)
+    L, Q, P, L_out, Q_out, out, lvectors_dim4, lvectors_dim1 = torch_model_TB.forward(data)
     L = L.detach().cpu().numpy()
     Q = Q.detach().cpu().numpy()
     P = P.detach().cpu().numpy()
     L_out = L_out.detach().cpu().numpy()
     Q_out = Q_out.detach().cpu().numpy()
     out = out.detach().cpu().numpy()
+    #lvectors_dim4 = np.around(lvectors_dim4.detach().cpu().numpy(), decimals=3)
+    #lvectors_dim1 = np.around(lvectors_dim1.detach().cpu().numpy(), decimals=3)
+    lvectors_dim4 = np.around(lvectors_dim4.detach().cpu().numpy(), decimals=3)
+    lvectors_dim1 = np.around(lvectors_dim1.detach().cpu().numpy(), decimals=3)
     np.savetxt(save_dir+"/torch_" + "edge_update_1.csv", L, delimiter=",")
     np.savetxt(save_dir+"/torch_" + "edge_update_aggr_1.csv", Q, delimiter=",")
     np.savetxt(save_dir+"/torch_" + "node_update.csv", P, delimiter=",")
     np.savetxt(save_dir+"/torch_" + "edge_update_2.csv", L_out, delimiter=",")
     np.savetxt(save_dir+"/torch_" + "edge_update_aggr_2.csv", Q_out, delimiter=",")
     np.savetxt(save_dir+"/torch_" + "out.csv", out, delimiter=",")
+    np.savetxt(save_dir+"/torch_" + "lvectors_dim4.csv", lvectors_dim4, delimiter=",", fmt='%.3e')
+    np.savetxt(save_dir + "/torch_" + "lvectors_dim1.csv", lvectors_dim1, delimiter=",", fmt='%.3e')
 
     # hls_model prediction
     predict_with_save(hls_model, data, out_dim=1, save_dir = save_dir)
