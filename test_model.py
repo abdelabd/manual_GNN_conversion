@@ -65,6 +65,7 @@ def main():
     hls_model = HLSModel_GNN(config, reader, layer_list)
     hls_model.inputs = ['edge_attr', 'node_attr', 'edge_index']
     hls_model.outputs = ['layer6_out_L']
+    hls_model.graph['edge_index'].precision['input3_t'] = HLSType('input3_t', IntegerPrecisionType(width=32, signed=False))
     hls_model.compile()
     
     
@@ -89,13 +90,13 @@ def main():
     # sample data (np.1D-array)
     Re_1D = np.reshape(Re, newshape = (Re.shape[0]*Re.shape[1]))
     Rn_1D = np.reshape(Rn, newshape = (Rn.shape[0]*Rn.shape[1]))
-    edge_index_1D = np.reshape(edge_index, newshape=(edge_index.shape[0]*edge_index.shape[1])).astype(np.int32)
+    edge_index_1D = np.reshape(edge_index, newshape=(edge_index.shape[0]*edge_index.shape[1])).astype(np.float32)
     hls_pred_noact = np.zeros(shape=(torch_pred.shape[0],)).astype(np.float32) # <--output of hls_model sent here, noact = noactivation
     
     # define ctypes
     Re_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Re_1D)))
     Rn_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(Rn_1D)))
-    edge_index_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(edge_index_1D)))
+    edge_index_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_uint32,len(edge_index_1D)))
     hls_pred_ctype = ctypes.POINTER(ctypes.ARRAY(ctypes.c_float,len(hls_pred_noact)))
     
     # sample data (C-arrays)
