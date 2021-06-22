@@ -42,6 +42,7 @@ def main():
         config = yaml.load(f, yaml.FullLoader)
     
     # data
+    print("yo")
     graph_indir = config['graph_indir'] 
     graph_files = np.array(os.listdir(graph_indir))
     graph_files = np.array([os.path.join(graph_indir, graph_file)
