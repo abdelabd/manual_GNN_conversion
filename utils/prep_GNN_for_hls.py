@@ -36,6 +36,9 @@ def prep_GNN_for_hls(model):
             'NodeAttr': [n, p],
             'EdgeIndex': [2, m]
     }
+    config['InputEdgeData'] = 'tb_data/input_edge_data.dat'
+    config['InputNodeData'] = 'tb_data/input_node_data.dat'
+    config['InputEdgeIndex'] = 'tb_data/input_edge_index.dat'
 
     model_config = {
     'Precision': 'ap_fixed<16,6>',
