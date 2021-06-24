@@ -10,7 +10,7 @@ python test_model.py test_config.yaml
 ### to test intermediate products
 ```bash
 cd manual_GNN_conversion
-python test_model_with_intermediates.py test_config.yaml
+python test_model_with_intermediates.py test_intermediates.yaml
 ```
 
 ### for full testbench
