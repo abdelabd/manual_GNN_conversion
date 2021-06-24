@@ -141,50 +141,51 @@ def predict_with_save(hls_model, data, out_dim, save_dir): #hls_model must be co
     L_1D = pd.read_csv("edge_update_1.csv", header=None).to_numpy()
     L = np.reshape(L_1D, newshape=Re.shape)
     os.remove("edge_update_1.csv")
-    np.savetxt(save_dir+"/hls_"+"edge_update_1.csv", L, delimiter=',')
+    os.makedirs(save_dir,exist_ok=True)
+    np.savetxt(os.path.join(save_dir,"hls_edge_update_1.csv"), L, delimiter=',')
     
     Q_1D = pd.read_csv("edge_update_aggr_1.csv", header=None).to_numpy()
     Q = np.reshape(Q_1D, newshape=(Rn.shape[0], Re.shape[1]))
     os.remove("edge_update_aggr_1.csv")
-    np.savetxt(save_dir+"/hls_"+"edge_update_aggr_1.csv", Q, delimiter=',')
+    np.savetxt(os.path.join(save_dir,"hls_edge_update_aggr_1.csv"), Q, delimiter=',')
     
     P_1D = pd.read_csv("node_update.csv", header=None).to_numpy()
     P = np.reshape(P_1D, newshape=Rn.shape)
     os.remove("node_update.csv")
-    np.savetxt(save_dir+"/hls_"+"node_update.csv", P, delimiter=',')
+    np.savetxt(os.path.join(save_dir,"hls_node_update.csv"), P, delimiter=',')
     
     L_out_1D = pd.read_csv("edge_update_2.csv", header=None).to_numpy()
     L_out = np.reshape(L_out_1D, newshape=(Re.shape[0], out_dim))
     os.remove("edge_update_2.csv")
-    np.savetxt(save_dir+"/hls_"+"edge_update_2.csv", L_out, delimiter=',')
+    np.savetxt(os.path.join(save_dir,"hls_edge_update_2.csv"), L_out, delimiter=',')
     
     Q_out_1D = pd.read_csv("edge_update_aggr_2.csv", header=None).to_numpy()
     Q_out = np.reshape(Q_out_1D, newshape=(Rn.shape[0], out_dim))
     os.remove("edge_update_aggr_2.csv")
-    np.savetxt(save_dir+"/hls_"+"edge_update_aggr_2.csv", Q_out, delimiter=',')
+    np.savetxt(os.path.join(save_dir,"hls_edge_update_aggr_2.csv"), Q_out, delimiter=',')
     
     out_1D = sigmoid(L_out_1D)
     out = np.reshape(out_1D, newshape=L_out.shape)
-    np.savetxt(save_dir+"/hls_"+"out.csv", out, delimiter=',')
+    np.savetxt(os.path.join(save_dir,"hls_out.csv"), out, delimiter=',')
 
     lvectors_dim4 = pd.read_csv("lvectors_dim4.csv", header=None).to_numpy()
     #lvectors_dim4 = np.around(lvectors_dim4, decimals=3)
     os.remove("lvectors_dim4.csv")
-    np.savetxt(save_dir+"/hls_"+"lvectors_dim4.csv", lvectors_dim4, delimiter=",",fmt='%.3e')
+    np.savetxt(os.path.join(save_dir,"hls_lvectors_dim4.csv"), lvectors_dim4, delimiter=",",fmt='%.3e')
 
     lvectors_dim1 = pd.read_csv("lvectors_dim1.csv", header=None).to_numpy()
     #lvectors_dim1 = np.around(lvectors_dim1, decimals=3)
     os.remove("lvectors_dim1.csv")
-    np.savetxt(save_dir + "/hls_" + "lvectors_dim1.csv", lvectors_dim1, delimiter=",",fmt='%.3e')
+    np.savetxt(os.path.join(save_dir,"hls_lvectors_dim1.csv"), lvectors_dim1, delimiter=",",fmt='%.3e')
 
     os.remove("edge_attr.csv")
-    np.savetxt(save_dir+"/input_"+"edge_attr.csv", Re, delimiter=",")
+    np.savetxt(os.path.join(save_dir,"input_edge_attr.csv"), Re, delimiter=",")
     
     os.remove("edge_index.csv")
-    np.savetxt(save_dir+"/input_"+"edge_index.csv", edge_index, delimiter=",")
+    np.savetxt(os.path.join(save_dir,"input_edge_index.csv"), edge_index, delimiter=",")
     
     os.remove("node_attr.csv")
-    np.savetxt(save_dir+"/input_"+"node_attr.csv", Rn, delimiter=",")
+    np.savetxt(os.path.join(save_dir,"input_node_attr.csv"), Rn, delimiter=",")
 
 
 #%%
