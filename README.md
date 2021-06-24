@@ -18,4 +18,4 @@ python test_model_with_intermediates.py test_intermediates.yaml
 cd manual_GNN_conversion
 python full_test.py test_config.yaml
 ```
-Assumes this version of hls4ml: https://github.com/abdelabd/hls4ml/tree/pyg_to_hls
+Assumes this version of hls4ml: https://github.com/abdelabd/hls4ml/tree/pyg_to_hls_rebase
