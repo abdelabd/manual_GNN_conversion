@@ -1,11 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jun 16 22:14:23 2021
-
-@author: abdel
-"""
-import os 
+import os
 import yaml 
 import argparse
 import numpy as np
@@ -20,11 +13,10 @@ from utils.data.dataset_pyg import GraphDataset
 from utils.models.interaction_network_pyg import InteractionNetwork as InteractionNetwork_pyg
 from utils.data.load_sample import load_sample
 
-#%%
 class data_wrapper(object):
-    def __init__(self, Rn, Re, edge_index):
-        self.x = Rn
-        self.edge_attr = Re
+    def __init__(self, node_attr, edge_attr, edge_index):
+        self.x = node_attr
+        self.edge_attr = edge_attr
         self.edge_index = edge_index
 
 def sigmoid(x):
