@@ -17,12 +17,12 @@ def pad_nodes_and_edges(node_attr, edge_attr, edge_index, n_node_max, n_edge_max
     edge_attr_appendage = torch.zeros(n_edge_diff, edge_attr.shape[1], dtype=edge_attr.dtype)
     edge_attr_prime = torch.cat([edge_attr, edge_attr_appendage], dim=0)
 
-    edge_index_appendage = torch.zeros(2, n_edge_diff, dtype=edge_index.dtype)
+    edge_index_appendage = torch.zeros(n_edge_diff, 2, dtype=edge_index.dtype)
     dummy_node_index = node_attr.shape[0]
     for i in range(n_edge_diff):
-        edge_index_appendage[0,i] = dummy_node_index
-        edge_index_appendage[1,i] = dummy_node_index
-    edge_index_prime = torch.cat([edge_index, edge_index_appendage], dim=1)
+        edge_index_appendage[i,0] = dummy_node_index
+        edge_index_appendage[i,1] = dummy_node_index
+    edge_index_prime = torch.cat([edge_index, edge_index_appendage], dim=0)
 
     return node_attr_prime, edge_attr_prime, edge_index_prime
 
@@ -42,7 +42,7 @@ def pad_nodes_truncate_edges(node_attr, edge_attr, edge_index, n_node_max, n_edg
 
     # last hired, first fired
     edge_attr_prime = edge_attr[:n_edge_max,:]
-    edge_index_prime = edge_index[:,:n_edge_max]
+    edge_index_prime = edge_index[:n_edge_max,:]
 
     return node_attr_prime, edge_attr_prime, edge_index_prime
 
@@ -52,19 +52,19 @@ def pad_edges(node_attr, edge_attr, edge_index, n_node_max, n_edge_max):
     edge_attr_appendage = torch.zeros(n_edge_diff, edge_attr.shape[1], dtype=edge_attr.dtype)
     edge_attr_prime = torch.cat([edge_attr, edge_attr_appendage], dim=0)
 
-    edge_index_appendage = torch.zeros(2, n_edge_diff, dtype=edge_index.dtype)
+    edge_index_appendage = torch.zeros(n_edge_diff, 2, dtype=edge_index.dtype)
     final_node_index = node_attr.shape[0]-1
     for i in range(n_edge_diff):
-        edge_index_appendage[0, i] = final_node_index
-        edge_index_appendage[1, i] = final_node_index
-    edge_index_prime = torch.cat([edge_index, edge_index_appendage], dim=1)
+        edge_index_appendage[i, 0] = final_node_index
+        edge_index_appendage[i, 1] = final_node_index
+    edge_index_prime = torch.cat([edge_index, edge_index_appendage], dim=0)
 
     return node_attr, edge_attr_prime, edge_index_prime
 
 # removes true edges
 def truncate_edges(node_attr, edge_attr, edge_index, n_node_max, n_edge_max):
     edge_attr_prime = edge_attr[:n_edge_max, :]
-    edge_index_prime = edge_index[:,:n_edge_max]
+    edge_index_prime = edge_index[:n_edge_max, :]
 
     return node_attr, edge_attr_prime, edge_index_prime
 
@@ -85,11 +85,11 @@ def truncate_nodes_pad_edges(node_attr, edge_attr, edge_index, n_node_max, n_edg
     edge_attr_appendage = torch.zeros(n_edge_diff, edge_attr.shape[1], dtype=edge_attr.dtype)
     edge_attr_prime = torch.cat([edge_attr, edge_attr_appendage], dim=0)
 
-    edge_index_appendage = torch.zeros(2, n_edge_diff, dtype=edge_index.dtype)
+    edge_index_appendage = torch.zeros(n_edge_diff, 2, dtype=edge_index.dtype)
     for i in range(n_edge_diff):
-        edge_index_appendage[0, i] = final_node_index
-        edge_index_appendage[1, i] = final_node_index
-    edge_index_prime = torch.cat([edge_index, edge_index_appendage], dim=1)
+        edge_index_appendage[i, 0] = final_node_index
+        edge_index_appendage[i, 1] = final_node_index
+    edge_index_prime = torch.cat([edge_index, edge_index_appendage], dim=0)
 
     return node_attr_prime, edge_attr_prime, edge_index_prime
 
@@ -128,7 +128,7 @@ def truncate_nodes_and_edges(node_attr, edge_attr, edge_index, n_node_max, n_edg
             if edge_index[i,j] in excluded_nodes:
                 pass
             else:
-                edge_index_prime[:,idx] = edge_index[:,j]
+                edge_index_prime[idx, :] = edge_index[j, :]
                 edge_attr_prime[idx,:] = edge_attr[j,:]
                 idx += 1
 

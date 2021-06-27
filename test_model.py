@@ -60,7 +60,7 @@ def main():
         config = yaml.load(f, yaml.FullLoader)
 
     if args.aggregation_method=='all':
-        aggr = ['add', 'mean']
+        aggr = ['add', 'mean', 'max']
     elif args.aggregation_method=='mean':
         aggr = ['mean']
     elif args.aggregation_method=='max':

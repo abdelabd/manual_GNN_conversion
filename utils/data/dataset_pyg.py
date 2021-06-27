@@ -32,7 +32,7 @@ class GraphDataset(Dataset):
             y = torch.from_numpy(f['y'])#, dtype=torch.uint8)
             pid = torch.from_numpy(f['pid'])#, dtype=torch.uint8)
 
-            data = Data(x=x, edge_index=edge_index,
+            data = Data(x=x, edge_index=torch.transpose(edge_index,0,1),
                         edge_attr=torch.transpose(edge_attr, 0, 1),
                         y=y, pid=pid)
             data.num_nodes = len(x)

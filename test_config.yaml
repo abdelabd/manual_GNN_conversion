@@ -1,3 +1,3 @@
 graph_indir: trackml_data/processed_plus_pyg_small
 model_dict_dir: trained_models/IN_pyg_small_state_dict.pt
-save_dir: hls_output/inputs_and_predictions
+trained_model_dir: trained_models
