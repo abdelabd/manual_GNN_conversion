@@ -1,5 +1,5 @@
 import os
-import yaml 
+import yaml
 import argparse
 import numpy as np
 import torch
@@ -10,8 +10,10 @@ from hls4ml.model.hls_layers import HLSType, IntegerPrecisionType
 
 # locals
 from utils.data.dataset_pyg import GraphDataset
-from utils.models.interaction_network_pyg import InteractionNetwork as InteractionNetwork_pyg
-from utils.data.load_sample import load_sample
+from utils.models.interaction_network_pyg_add import InteractionNetwork as InteractionNetwork_add
+from utils.models.interaction_network_pyg_mean import InteractionNetwork as InteractionNetwork_mean
+from utils.models.interaction_network_pyg_max import InteractionNetwork as InteractionNetwork_max
+from utils.data.fix_graph_size import fix_graph_size
 
 class data_wrapper(object):
     def __init__(self, node_attr, edge_attr, edge_index):
@@ -26,83 +28,109 @@ def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
+    add_arg('--n-graphs', type=int, default=1)
+    add_arg('--aggregation-method', type=str, default='add')
+    add_arg('--save-errors', action='store_true')
     return parser.parse_args()
-    
+
+def load_models(trained_model_dir, graph_dims, aggr='add'): #aggr = aggregation_method: ['add', 'mean', 'max']
+    # get torch model
+    if aggr=='mean':
+        model = InteractionNetwork_mean()
+    elif aggr=='max':
+        model = InteractionNetwork_max()
+    else:
+        model = InteractionNetwork_add()
+    model_dict = torch.load(trained_model_dir + "//IN_pyg_small_" + aggr + "_state_dict.pt")
+    model.load_state_dict(model_dict)
+
+    # get hls model
+    hls_model_config, reader, layer_list = pyg_to_hls(model, graph_dims)
+    hls_model_config['OutputDir'] = hls_model_config['OutputDir'] + "/%s"%aggr
+    hls_model = HLSModel_GNN(hls_model_config, reader, layer_list)
+    hls_model.inputs = ['node_attr', 'edge_attr', 'edge_index']
+    hls_model.outputs = ['layer6_out_L']
+    hls_model.graph['edge_index'].precision['input3_t'] = HLSType('input3_t', IntegerPrecisionType(width=32, signed=False))
+    hls_model.compile()
+    return model, hls_model
+
 def main():
     args = parse_args()
     with open(args.config) as f:
         config = yaml.load(f, yaml.FullLoader)
 
-    # torch model
-    model = InteractionNetwork_pyg()
-    model_dict_dir = config['model_dict_dir']
-    model_dict = torch.load(model_dict_dir)
-    model.load_state_dict(model_dict)
+    if args.aggregation_method=='all':
+        aggr = ['add', 'mean']
+    elif args.aggregation_method=='mean':
+        aggr = ['mean']
+    elif args.aggregation_method=='max':
+        aggr = ['max']
+    else:
+        aggr = ['add']
 
-    # hls model
+    # dataset
+    graph_indir = config['graph_indir']
+    graph_files = np.array(os.listdir(graph_indir))
+    graph_files = np.array([os.path.join(graph_indir, graph_file)
+                                for graph_file in graph_files])
+    n_graphs = len(graph_files)
+    IDs = np.arange(n_graphs)
+    dataset = GraphDataset(graph_files=graph_files[IDs])
+
+    # define graph dimensions for hls model
     graph_dims = {
         "n_node_max": 112,
         "n_edge_max": 148,
         "node_dim": 3,
         "edge_dim": 4
     }
-    hls_model_config, reader, layer_list = pyg_to_hls(model, graph_dims)
-    hls_model = HLSModel_GNN(hls_model_config, reader, layer_list)
-    hls_model.inputs = ['node_attr', 'edge_attr',  'edge_index']
-    hls_model.outputs = ['layer6_out_L']
-    hls_model.graph['edge_index'].precision['input3_t'] = HLSType('input3_t',
-                                                                  IntegerPrecisionType(width=32, signed=False))
-    hls_model.compile()
-    print("")
 
-    # dataset
-    graph_indir = config['graph_indir']
-    graph_files = np.array(os.listdir(graph_indir))
-    graph_files = np.array([os.path.join(graph_indir, graph_file)
-                            for graph_file in graph_files])
-    n_graphs = len(graph_files)
-    IDs = np.arange(n_graphs)
-    dataset = GraphDataset(graph_files=graph_files[IDs])
-    Rn_T, Re_T, edge_index_T, target_T = load_sample(dataset)  # sample data (torch.Tensor)
-    Rn, Re, edge_index, target = Rn_T.detach().cpu().numpy(), Re_T.detach().cpu().numpy(), edge_index_T.detach().cpu().numpy().astype(
-        np.int32), target_T.detach().cpu().numpy()  # sample data (np.array)
-    print(f"num edges: {target_T.shape[0]}")
+    for a in aggr:
+        model, hls_model = load_models(config['trained_model_dir'], graph_dims, aggr=a)
 
-    # torch model inference
-    torch_pred = model(data_wrapper(Rn_T, Re_T, edge_index_T)).detach().cpu().numpy()
-    torch_pred = np.reshape(torch_pred[:target_T.shape[0]], newshape=(target_T.shape[0],))
-    print("torch match: ", sum(np.round(torch_pred) == target_T.detach().cpu().numpy()))
+        all_torch_error = []
+        all_hls_error = []
+        all_torch_hls_diff = []
+        n_graphs = 0
+        for data in dataset[:args.n_graphs]:
+            node_attr_T, edge_attr_T, edge_index_T, bad_graph = fix_graph_size(data.x, data.edge_attr, data.edge_index, n_node_max=graph_dims['n_node_max'], n_edge_max=graph_dims['n_edge_max'])
+            if bad_graph:
+                continue
 
-    # hls model inference
-    hls_pred = sigmoid(hls_model.predict(Rn, Re, edge_index))
-    hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],))
-    print("hls match: ", sum(np.round(hls_pred)== target_T.detach().cpu().numpy()))
+            n_graphs += 1
+            target = np.reshape(data.y.detach().cpu().numpy(), newshape=(data.y.shape[0],))
 
-    # save testbench data
-    #os.makedirs('tb_data', exist_ok=True)
-    #np.savetxt('tb_data/input_edge_data.dat', Re_1D.reshape(1, -1), fmt='%f', delimiter=' ')
-    #np.savetxt('tb_data/input_node_data.dat', Rn_1D.reshape(1, -1), fmt='%f', delimiter=' ')
-    #np.savetxt('tb_data/input_edge_index.dat', edge_index_1D.reshape(1, -1), fmt='%f', delimiter=' ')
-    #np.savetxt('tb_data/output_predictions.dat', torch_pred.reshape(1, -1), fmt='%f', delimiter=' ')
+            node_attr, edge_attr, edge_index = node_attr_T.detach().cpu().numpy(), edge_attr_T.detach().cpu().numpy(), edge_index_T.detach().cpu().numpy().astype(np.int32)  # np.array data
 
-    #print/save outputs
-    np.savetxt('target.csv', target, delimiter=',')
-    np.savetxt('torch_pred.csv', torch_pred, delimiter=',')
-    np.savetxt('hls_pred.csv', hls_pred, delimiter=',')
-    err = np.mean(np.abs(torch_pred-hls_pred))
-    print(f"torch/hls mean absolute difference: {err}")
+            # torch prediction
+            torch_pred = model(data_wrapper(node_attr_T, edge_attr_T, edge_index_T.transpose(0,1))).detach().cpu().numpy()
+            torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
-#%% 
-if __name__=='__main__':
+            # hls prediction
+            hls_pred = sigmoid(hls_model.predict(node_attr, edge_attr, edge_index))
+            hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
+
+            # compare outputs
+            torch_err = np.mean(np.abs(target-torch_pred))
+            hls_err = np.mean(np.abs(target-hls_pred))
+            torch_hls_diff = np.mean(np.abs(torch_pred-hls_pred))
+            all_torch_error.append(torch_err)
+            all_hls_error.append(hls_err)
+            all_torch_hls_diff.append(torch_hls_diff)
+
+        if args.save_errors:
+            np.savetxt(hls_model.config.get_output_dir()+"/all_torch_error.csv", np.array(all_torch_error), delimiter=",")
+            np.savetxt(hls_model.config.get_output_dir() + "/all_hls_error.csv", np.array(all_hls_error), delimiter=",")
+            np.savetxt(hls_model.config.get_output_dir() + "/all_torch_hls_diff.csv", np.array(all_torch_hls_diff), delimiter=",")
+
+        print(f"With aggregation method = {a}")
+        print(f"     n_graphs: {n_graphs}")
+        print(f"     mean absolute torch error: {np.mean(all_torch_error)}")
+        print(f"     mean absolute hls error: {np.mean(all_hls_error)}")
+        print(f"     torch<-->hls mean absolute difference: {np.mean(all_torch_hls_diff)}")
+        print("")
+
+if __name__=="__main__":
     main()
 
 
-            
-    
-    
-    
-    
-    
-    
-    
-    
