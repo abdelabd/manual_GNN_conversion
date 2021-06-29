@@ -39,9 +39,9 @@ class ObjectModel(nn.Module):
 
 
 class InteractionNetwork(MessagePassing):
-    def __init__(self):
-        super(InteractionNetwork, self).__init__(aggr='add', 
-                                                 flow='source_to_target')
+    def __init__(self, aggr='add', flow='source_to_target'):
+        super(InteractionNetwork, self).__init__(aggr=aggr,
+                                                 flow=flow)
         self.R1 = RelationalModel(10, 4, 40)
         self.O = ObjectModel(7, 3, 40)
         self.R2 = RelationalModel(10, 1, 40)
