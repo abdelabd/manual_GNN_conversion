@@ -10,17 +10,18 @@ import itertools
 import torch 
 import torch.nn as nn
 from torch_scatter import scatter
-
+from .interaction_network_pyg import ObjectModel, RelationalModel
 #%%
  
 class InteractionNetwork(nn.Module): # 'MP' for message-passing
     def __init__(self):
         
         super().__init__()
-        #self.R1 = RelationalModel(10, 4, 40)
-        #self.O = ObjectModel(7, 3, 40)
-        #self.R2 = RelationalModel(10, 1, 40)
-        
+        self.R1 = RelationalModel(10, 4, 40)
+        self.O = ObjectModel(7, 3, 40)
+        self.R2 = RelationalModel(10, 1, 40)
+
+        later = """
         self.R1 = nn.Sequential(
             nn.Linear(10, 40),
             nn.ReLU(),
@@ -44,6 +45,7 @@ class InteractionNetwork(nn.Module): # 'MP' for message-passing
             nn.ReLU(),
             nn.Linear(40, 1),
         )
+        """
         
         self.p=3
         self.q=4

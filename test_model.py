@@ -6,7 +6,7 @@ import torch
 
 from hls4ml.model.hls_model import HLSModel_GNN
 from hls4ml.converters.pyg_to_hls import pyg_to_hls
-from hls4ml.model.hls_layers import HLSType, IntegerPrecisionType
+from hls4ml.model.hls_layers import HLSType, IntegerPrecisionType, FixedPrecisionType
 
 # locals
 from utils.data.dataset_pyg import GraphDataset
@@ -14,6 +14,7 @@ from utils.models.interaction_network_pyg_add import InteractionNetwork as Inter
 from utils.models.interaction_network_pyg_mean import InteractionNetwork as InteractionNetwork_mean
 from utils.models.interaction_network_pyg_max import InteractionNetwork as InteractionNetwork_max
 from utils.data.fix_graph_size import fix_graph_size
+from model_wrappers import model_add_wrapper, model_mean_wrapper, model_max_wrapper
 
 class data_wrapper(object):
     def __init__(self, node_attr, edge_attr, edge_index):
@@ -24,6 +25,52 @@ class data_wrapper(object):
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
+# error criteria
+def MAE(target, pred):
+    inside_sum = np.abs(target-pred)
+    return np.mean(inside_sum)
+def MSE(target, pred):
+    inside_sum = (target - pred)**2
+    return np.mean(inside_sum)
+def RMSE(target, pred):
+    return np.sqrt(MSE(target, pred))
+def mean_cross_entropy(target, pred, epsilon=1e-8): #keeps dividing by zero :(
+    pred_prime = np.clip(pred, epsilon, 1 - epsilon).astype(np.float64)
+    #print(min(pred_prime))
+    inside_sum = target*np.log(pred_prime)+(1-target)*np.log(1-pred_prime)
+    return -np.sum(inside_sum)/len(target)
+
+def load_models(trained_model_dir, graph_dims, aggr='add', save_intermediates=False): #aggr = aggregation_method: ['add', 'mean', 'max']
+    # get torch model
+    torch_map = {
+        'add': InteractionNetwork_add,
+        'mean': InteractionNetwork_mean,
+        'max': InteractionNetwork_max
+    }
+    torch_model = torch_map[aggr]()
+    torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small_" + aggr + "_state_dict.pt")
+    torch_model.load_state_dict(torch_model_dict)
+
+    # get hls model
+    hls_model_config, reader, layer_list = pyg_to_hls(torch_model, graph_dims, save_intermediates=save_intermediates)
+    hls_model_config['OutputDir'] = hls_model_config['OutputDir'] + "/%s"%aggr
+    hls_model = HLSModel_GNN(hls_model_config, reader, layer_list)
+    hls_model.inputs = ['node_attr', 'edge_attr', 'edge_index']
+    hls_model.outputs = ['layer6_out_L']
+    hls_model.compile()
+
+    # get torch wrapper
+    wrapper_map = {
+        'add': model_add_wrapper,
+        'mean': model_mean_wrapper,
+        'max': model_max_wrapper
+    }
+    if save_intermediates:
+        torch_wrapper = wrapper_map[aggr](torch_model, save_dir=hls_model.config.get_output_dir())
+    else: torch_wrapper = wrapper_map[aggr](torch_model)
+
+    return torch_model, hls_model, torch_wrapper
+
 def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
@@ -31,28 +78,8 @@ def parse_args():
     add_arg('--n-graphs', type=int, default=1)
     add_arg('--aggregation-method', type=str, default='add')
     add_arg('--save-errors', action='store_true')
+    add_arg('--save-intermediates', action='store_true')
     return parser.parse_args()
-
-def load_models(trained_model_dir, graph_dims, aggr='add'): #aggr = aggregation_method: ['add', 'mean', 'max']
-    # get torch model
-    if aggr=='mean':
-        model = InteractionNetwork_mean()
-    elif aggr=='max':
-        model = InteractionNetwork_max()
-    else:
-        model = InteractionNetwork_add()
-    model_dict = torch.load(trained_model_dir + "//IN_pyg_small_" + aggr + "_state_dict.pt")
-    model.load_state_dict(model_dict)
-
-    # get hls model
-    hls_model_config, reader, layer_list = pyg_to_hls(model, graph_dims)
-    hls_model_config['OutputDir'] = hls_model_config['OutputDir'] + "/%s"%aggr
-    hls_model = HLSModel_GNN(hls_model_config, reader, layer_list)
-    hls_model.inputs = ['node_attr', 'edge_attr', 'edge_index']
-    hls_model.outputs = ['layer6_out_L']
-    hls_model.graph['edge_index'].precision['input3_t'] = HLSType('input3_t', IntegerPrecisionType(width=32, signed=False))
-    hls_model.compile()
-    return model, hls_model
 
 def main():
     args = parse_args()
@@ -86,13 +113,25 @@ def main():
     }
 
     for a in aggr:
-        model, hls_model = load_models(config['trained_model_dir'], graph_dims, aggr=a)
+        torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, save_intermediates=args.save_intermediates)
 
-        all_torch_error = []
-        all_hls_error = []
-        all_torch_hls_diff = []
+        all_torch_error = {
+            "MAE": [],
+            "MSE": [],
+            "RMSE": [],
+        }
+        all_hls_error = {
+            "MAE": [],
+            "MSE": [],
+            "RMSE": [],
+        }
+        all_torch_hls_diff = {
+            "MAE": [],
+            "MSE": [],
+            "RMSE": [],
+        }
         n_graphs = 0
-        for data in dataset[:args.n_graphs]:
+        for i, data in enumerate(dataset[:args.n_graphs]):
             node_attr_T, edge_attr_T, edge_index_T, bad_graph = fix_graph_size(data.x, data.edge_attr, data.edge_index, n_node_max=graph_dims['n_node_max'], n_edge_max=graph_dims['n_edge_max'])
             if bad_graph:
                 continue
@@ -103,32 +142,42 @@ def main():
             node_attr, edge_attr, edge_index = node_attr_T.detach().cpu().numpy(), edge_attr_T.detach().cpu().numpy(), edge_index_T.detach().cpu().numpy().astype(np.int32)  # np.array data
 
             # torch prediction
-            torch_pred = model(data_wrapper(node_attr_T, edge_attr_T, edge_index_T.transpose(0,1))).detach().cpu().numpy()
+            torch_pred = torch_model(data_wrapper(node_attr_T, edge_attr_T, edge_index_T.transpose(0,1))).detach().cpu().numpy()
             torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
             # hls prediction
             hls_pred = sigmoid(hls_model.predict(node_attr, edge_attr, edge_index))
             hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
-            # compare outputs
-            torch_err = np.mean(np.abs(target-torch_pred))
-            hls_err = np.mean(np.abs(target-hls_pred))
-            torch_hls_diff = np.mean(np.abs(torch_pred-hls_pred))
-            all_torch_error.append(torch_err)
-            all_hls_error.append(hls_err)
-            all_torch_hls_diff.append(torch_hls_diff)
+            # get errors
+            all_torch_error["MAE"].append(MAE(target, torch_pred))
+            all_torch_error["MSE"].append(MSE(target, torch_pred))
+            all_torch_error["RMSE"].append(RMSE(target, torch_pred))
 
-        if args.save_errors:
-            np.savetxt(hls_model.config.get_output_dir()+"/all_torch_error.csv", np.array(all_torch_error), delimiter=",")
-            np.savetxt(hls_model.config.get_output_dir() + "/all_hls_error.csv", np.array(all_hls_error), delimiter=",")
-            np.savetxt(hls_model.config.get_output_dir() + "/all_torch_hls_diff.csv", np.array(all_torch_hls_diff), delimiter=",")
+            all_hls_error["MAE"].append(MAE(target, hls_pred))
+            all_hls_error["MSE"].append(MSE(target, hls_pred))
+            all_hls_error["RMSE"].append(RMSE(target, hls_pred))
 
-        print(f"With aggregation method = {a}")
-        print(f"     n_graphs: {n_graphs}")
-        print(f"     mean absolute torch error: {np.mean(all_torch_error)}")
-        print(f"     mean absolute hls error: {np.mean(all_hls_error)}")
-        print(f"     torch<-->hls mean absolute difference: {np.mean(all_torch_hls_diff)}")
+            all_torch_hls_diff["MAE"].append(MAE(torch_pred, hls_pred))
+            all_torch_hls_diff["MSE"].append(MSE(torch_pred, hls_pred))
+            all_torch_hls_diff["RMSE"].append(RMSE(torch_pred, hls_pred))
+
+            if i==args.n_graphs-1:
+                wrapper_pred = torch_wrapper.forward(data_wrapper(node_attr_T, edge_attr_T, edge_index_T.transpose(0,1))) #saves intermediates
+                wrapper_pred = wrapper_pred.detach().cpu().numpy()
+                wrapper_pred = np.reshape(wrapper_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
+                wrapper_MAE = MAE(torch_pred, wrapper_pred)
+
+        print(f"n_graphs: {n_graphs}")
+        print(f"With aggregation method = {a}:")
+        print(f"     single-graph wrapper-->torch MAE: {wrapper_MAE}")
         print("")
+        for err_type in ["MAE", "MSE", "RMSE"]:#, "MCE"]:
+            print(f"     with error criteria = {err_type}:")
+            print(f"          mean torch error: %s" %np.mean(all_torch_error["%s" %err_type]))
+            print(f"          mean hls error: %s" %np.mean(all_hls_error["%s" %err_type]))
+            print(f"          mean hls-->torch error: %s" %np.mean(all_torch_hls_diff["%s" %err_type]))
+            print("")
 
 if __name__=="__main__":
     main()
