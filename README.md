@@ -9,7 +9,7 @@ cd manual_GNN_conversion
 python test_model.py test_config.yaml --n-graphs=100 --aggregation-method all --flow all --save-intermediates
 ```
 
-### To test logic (in python)
+### To test HLS logic in Python
 ```bash
 git clone https://github.com/abdelabd/manual_GNN_conversion
 cd manual_GNN_conversion
