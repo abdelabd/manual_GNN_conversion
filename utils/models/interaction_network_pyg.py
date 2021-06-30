@@ -51,8 +51,15 @@ class InteractionNetwork(MessagePassing):
         edge_index, edge_attr = data.edge_index, data.edge_attr
         x_tilde = self.propagate(edge_index, x=x, edge_attr=edge_attr)
 
-        m2 = torch.cat([x_tilde[edge_index[1]],
-                        x_tilde[edge_index[0]],
+        if self.flow=='source_to_target':
+            r = edge_index[1]
+            s = edge_index[0]
+        else:
+            r = edge_index[0]
+            s = edge_index[1]
+
+        m2 = torch.cat([x_tilde[r],
+                        x_tilde[s],
                         self.E], dim=1)
         return torch.sigmoid(self.R2(m2))
 

@@ -36,7 +36,7 @@ def mean_cross_entropy(target, pred, epsilon=1e-8): #keeps dividing by zero :(
     inside_sum = target*np.log(pred_prime)+(1-target)*np.log(1-pred_prime)
     return -np.sum(inside_sum)/len(target)
 
-def load_models(trained_model_dir, aggr='add', flow='source_to_target', save_intermediates=False): #aggr = aggregation_method: ['add', 'mean', 'max']
+def load_models(trained_model_dir, aggr='add', flow='source_to_target'): #aggr = aggregation_method: ['add', 'mean', 'max']
     # get torch model
     torch_model = InteractionNetwork(aggr=aggr, flow=flow)
     torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + "_state_dict.pt")
@@ -54,9 +54,7 @@ def parse_args():
     add_arg('--n-graphs', type=int, default=1)
     add_arg('--aggregation-method', type=str, default='add', help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', help='[source_to_target, target_to_source, all]')
-    add_arg('--complexity', type=str, default='normal')
     add_arg('--save-errors', action='store_true')
-    add_arg('--save-intermediates', action='store_true')
     return parser.parse_args()
 
 def main():
@@ -72,10 +70,6 @@ def main():
     if args.flow == 'all':
         flows = ['source_to_target', 'target_to_source']
     else: flows = [args.flow]
-
-    if args.complexity == 'all':
-        complexities = ['simple', 'complex', 'double_complex', 'triple_complex']
-    else: complexities = [args.complexity]
 
     # dataset
     graph_indir = config['graph_indir']
@@ -108,54 +102,53 @@ def main():
     for a in aggregations:
         for f in flows:
             torch_model, torch_wrapper = load_models(config['trained_model_dir'], aggr=a, flow=f)
-            for c in complexities:
-                all_torch_error = {
+            all_torch_error = {
                     "MAE": [],
                     "MSE": [],
                     "RMSE": [],
                     }
-                all_wrapper_error = {
+            all_wrapper_error = {
                     "MAE": [],
                     "MSE": [],
                     "RMSE": [],
                 }
-                all_torch_wrapper_diff = {
+            all_torch_wrapper_diff = {
                     "MAE": [],
                     "MSE": [],
                     "RMSE": [],
                 }
-                for i, data in enumerate(graphs):
-                    target = np.reshape(data.target.detach().cpu().numpy(), newshape=(data.target.shape[0],))
+            for i, data in enumerate(graphs):
+                target = np.reshape(data.target.detach().cpu().numpy(), newshape=(data.target.shape[0],))
 
-                    # torch prediction
-                    torch_pred = torch_model(data).detach().cpu().numpy()
-                    torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
+                # torch prediction
+                torch_pred = torch_model(data).detach().cpu().numpy()
+                torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
-                    # wrapper prediction
-                    wrapper_pred = torch_wrapper.forward(data, complexity=c)
-                    wrapper_pred = wrapper_pred.detach().cpu().numpy()
-                    wrapper_pred = np.reshape(wrapper_pred[:target.shape[0]], newshape=(target.shape[0],))  # drop dummy edges
+                # wrapper prediction
+                wrapper_pred = torch_wrapper.forward(data)
+                wrapper_pred = wrapper_pred.detach().cpu().numpy()
+                wrapper_pred = np.reshape(wrapper_pred[:target.shape[0]], newshape=(target.shape[0],))  # drop dummy edges
 
-                    # get errors
-                    all_torch_error["MAE"].append(MAE(target, torch_pred))
-                    all_torch_error["MSE"].append(MSE(target, torch_pred))
-                    all_torch_error["RMSE"].append(RMSE(target, torch_pred))
+                # get errors
+                all_torch_error["MAE"].append(MAE(target, torch_pred))
+                all_torch_error["MSE"].append(MSE(target, torch_pred))
+                all_torch_error["RMSE"].append(RMSE(target, torch_pred))
 
-                    all_wrapper_error["MAE"].append(MAE(target, wrapper_pred))
-                    all_wrapper_error["MSE"].append(MSE(target, wrapper_pred))
-                    all_wrapper_error["RMSE"].append(RMSE(target, wrapper_pred))
+                all_wrapper_error["MAE"].append(MAE(target, wrapper_pred))
+                all_wrapper_error["MSE"].append(MSE(target, wrapper_pred))
+                all_wrapper_error["RMSE"].append(RMSE(target, wrapper_pred))
 
-                    all_torch_wrapper_diff["MAE"].append(MAE(torch_pred, wrapper_pred))
-                    all_torch_wrapper_diff["MSE"].append(MSE(torch_pred, wrapper_pred))
-                    all_torch_wrapper_diff["RMSE"].append(RMSE(torch_pred, wrapper_pred))
+                all_torch_wrapper_diff["MAE"].append(MAE(torch_pred, wrapper_pred))
+                all_torch_wrapper_diff["MSE"].append(MSE(torch_pred, wrapper_pred))
+                all_torch_wrapper_diff["RMSE"].append(RMSE(torch_pred, wrapper_pred))
 
-                print(f"With aggregation={a}, flow={f}, complexity={c}")
-                for err_type in ["MAE", "MSE", "RMSE"]:
-                    print(f"     with error criteria = {err_type}:")
-                    print(f"          mean torch error: %s" %np.mean(all_torch_error["%s" %err_type]))
-                    print(f"          mean wrapper error: %s" %np.mean(all_wrapper_error["%s" %err_type]))
-                    print(f"          mean wrapper->torch error: %s" %np.mean(all_torch_wrapper_diff["%s" %err_type]))
-                    print("")
+            print(f"With aggregation={a} and flow={torch_model.flow}")
+            for err_type in ["MAE", "MSE", "RMSE"]:
+                print(f"     with error criteria = {err_type}:")
+                print(f"          mean torch error: %s" %np.mean(all_torch_error["%s" %err_type]))
+                print(f"          mean wrapper error: %s" %np.mean(all_wrapper_error["%s" %err_type]))
+                print(f"          mean wrapper->torch error: %s" %np.mean(all_torch_wrapper_diff["%s" %err_type]))
+                print("")
 
     duration = time.time() - tic
     print(f"Duration: {duration//60} minutes, {duration%60} seconds")
