@@ -46,9 +46,13 @@ class model_wrapper():
                 for j in range(out_dim):
                     edge_update_aggr[r, j] += edge_update[i, j]
             elif self.model.aggr == 'max':
-                for j in range(out_dim):
-                    if edge_update_aggr[r, j] < edge_update[i, j]:
-                        edge_update_aggr[r, j] = edge_update[i, j]
+                if num_edge_per_node[r] <= 1: #if this is the first edge to be sent to the aggregate, there's no other
+                    # values to compare it to, i.e. it's the max by default
+                    edge_update_aggr[r] = edge_update[i]
+                else:
+                    for j in range(out_dim):
+                        if edge_update_aggr[r,j] < edge_update[i,j]:
+                            edge_update_aggr[r,j] = edge_update[i,j]
 
         # extra step for mean-aggregation
         if self.model.aggr=='mean':
