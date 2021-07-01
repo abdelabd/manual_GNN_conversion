@@ -38,12 +38,12 @@ class ObjectModel(nn.Module):
         return self.layers(C)
 
 class InteractionNetwork(MessagePassing):
-    def __init__(self, aggr='add', flow='source_to_target'):
+    def __init__(self, aggr='add', flow='source_to_target', hidden_size=40):
         super(InteractionNetwork, self).__init__(aggr=aggr,
                                                  flow=flow)
-        self.R1 = RelationalModel(10, 4, 40)
-        self.O = ObjectModel(7, 3, 40)
-        self.R2 = RelationalModel(10, 1, 40)
+        self.R1 = RelationalModel(10, 4, hidden_size)
+        self.O = ObjectModel(7, 3, hidden_size)
+        self.R2 = RelationalModel(10, 1, hidden_size)
 
     def forward(self, data):
         x = data.x

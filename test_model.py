@@ -21,7 +21,6 @@ class data_wrapper(object):
         self.edge_attr = edge_attr
         self.edge_index = edge_index.transpose(0,1)
         self.target = target
-
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
@@ -79,10 +78,10 @@ def f1(target, pred):
     f1 = 2*precision*recall/(precision+recall)
     return f1
 
-def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target'): #aggr = aggregation_method: ['add', 'mean', 'max']
+def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40): #aggr = aggregation_method: ['add', 'mean', 'max']
     # get torch model
-    torch_model = InteractionNetwork(aggr=aggr, flow=flow)
-    torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + "_state_dict.pt")
+    torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
+    torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
     torch_model.load_state_dict(torch_model_dict)
 
     # get hls model
@@ -92,7 +91,7 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     forward_dict["R2"] = "EdgeBlock"
 
     hls_model_config, reader, layer_list = pyg_to_hls(torch_model, forward_dict, graph_dims)
-    hls_model_config['OutputDir'] = hls_model_config['OutputDir'] + "/%s"%aggr + "/%s"%flow
+    hls_model_config['OutputDir'] = hls_model_config['OutputDir'] + "/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons
     hls_model = HLSModel_GNN(hls_model_config, reader, layer_list)
     hls_model.inputs = ['node_attr', 'edge_attr', 'edge_index']
     hls_model.outputs = ['layer6_out_L']
@@ -110,6 +109,9 @@ def parse_args():
     add_arg('--n-graphs', type=int, default=1)
     add_arg('--aggregation-method', type=str, default='add', help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', help='[source_to_target, target_to_source, all]')
+    add_arg('--max-nodes', type=int, default=112)
+    add_arg('--max-edges', type=int, default=148)
+    add_arg('--n-neurons', type=int, default=40)
     add_arg('--save-errors', action='store_true')
     return parser.parse_args()
 
@@ -126,6 +128,10 @@ def main():
         flows = ['source_to_target', 'target_to_source']
     else: flows = [args.flow]
 
+    if args.n_neurons == 'all':
+        n_neurons = [8,40]
+    else: n_neurons = [args.n_neurons]
+
     # dataset
     graph_indir = config['graph_indir']
     graph_files = np.array(os.listdir(graph_indir))
@@ -137,8 +143,8 @@ def main():
 
     # get fixed_size graphs
     graph_dims = {
-        "n_node_max": 112,
-        "n_edge_max": 148,
+        "n_node_max": args.max_nodes,
+        "n_edge_max": args.max_edges,
         "node_dim": 3,
         "edge_dim": 4
     }
@@ -154,81 +160,82 @@ def main():
 
     for a in aggregations:
         for f in flows:
-            torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f)
+            for nn in n_neurons:
+                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn)
 
-            all_torch_error = {
-                "MAE": [],
-                "MSE": [],
-                "RMSE": [],
-                'Accuracy': [],
-                "f1": []
-            }
-            all_hls_error = {
-                "MAE": [],
-                "MSE": [],
-                "RMSE": [],
-                'Accuracy': [],
-                "f1": []
-            }
-            all_torch_hls_diff = {
-                "MAE": [],
-                "MSE": [],
-                "RMSE": [],
-                "Accuracy": [],
-                "f1": []
-            }
-            for i, data in enumerate(graphs):
-                target = np.reshape(data.target.detach().cpu().numpy(), newshape=(data.target.shape[0],))
+                all_torch_error = {
+                    "MAE": [],
+                    "MSE": [],
+                    "RMSE": [],
+                    'Accuracy': [],
+                    "f1": []
+                }
+                all_hls_error = {
+                    "MAE": [],
+                    "MSE": [],
+                    "RMSE": [],
+                    'Accuracy': [],
+                    "f1": []
+                }
+                all_torch_hls_diff = {
+                    "MAE": [],
+                    "MSE": [],
+                    "RMSE": [],
+                    "Accuracy": [],
+                    "f1": []
+                }
+                for i, data in enumerate(graphs):
+                    target = np.reshape(data.target.detach().cpu().numpy(), newshape=(data.target.shape[0],))
 
-                # torch prediction
-                torch_pred = torch_model(data).detach().cpu().numpy()
-                torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
+                    # torch prediction
+                    torch_pred = torch_model(data).detach().cpu().numpy()
+                    torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
-                # hls prediction
-                node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)  # np.array data
-                hls_pred = sigmoid(hls_model.predict(node_attr, edge_attr, edge_index))
-                hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
+                    # hls prediction
+                    node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)  # np.array data
+                    hls_pred = sigmoid(hls_model.predict(node_attr, edge_attr, edge_index))
+                    hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
-                # get errors
-                all_torch_error["MAE"].append(MAE(target, torch_pred))
-                all_torch_error["MSE"].append(MSE(target, torch_pred))
-                all_torch_error["RMSE"].append(RMSE(target, torch_pred))
-                all_torch_error["Accuracy"].append(accuracy(target, np.round(torch_pred)))
-                all_torch_error["f1"].append(f1(target, np.round(torch_pred)))
+                    # get errors
+                    all_torch_error["MAE"].append(MAE(target, torch_pred))
+                    all_torch_error["MSE"].append(MSE(target, torch_pred))
+                    all_torch_error["RMSE"].append(RMSE(target, torch_pred))
+                    all_torch_error["Accuracy"].append(accuracy(target, np.round(torch_pred)))
+                    all_torch_error["f1"].append(f1(target, np.round(torch_pred)))
 
-                all_hls_error["MAE"].append(MAE(target, hls_pred))
-                all_hls_error["MSE"].append(MSE(target, hls_pred))
-                all_hls_error["RMSE"].append(RMSE(target, hls_pred))
-                all_hls_error["Accuracy"].append(accuracy(target, np.round(hls_pred)))
-                all_hls_error["f1"].append(f1(target, np.round(hls_pred)))
+                    all_hls_error["MAE"].append(MAE(target, hls_pred))
+                    all_hls_error["MSE"].append(MSE(target, hls_pred))
+                    all_hls_error["RMSE"].append(RMSE(target, hls_pred))
+                    all_hls_error["Accuracy"].append(accuracy(target, np.round(hls_pred)))
+                    all_hls_error["f1"].append(f1(target, np.round(hls_pred)))
 
-                all_torch_hls_diff["MAE"].append(MAE(torch_pred, hls_pred))
-                all_torch_hls_diff["MSE"].append(MSE(torch_pred, hls_pred))
-                all_torch_hls_diff["RMSE"].append(RMSE(torch_pred, hls_pred))
-                all_torch_hls_diff["Accuracy"].append(accuracy(np.round(torch_pred), np.round(hls_pred)))
-                all_torch_hls_diff["f1"].append(f1(np.round(torch_pred), np.round(hls_pred)))
+                    all_torch_hls_diff["MAE"].append(MAE(torch_pred, hls_pred))
+                    all_torch_hls_diff["MSE"].append(MSE(torch_pred, hls_pred))
+                    all_torch_hls_diff["RMSE"].append(RMSE(torch_pred, hls_pred))
+                    all_torch_hls_diff["Accuracy"].append(accuracy(np.round(torch_pred), np.round(hls_pred)))
+                    all_torch_hls_diff["f1"].append(f1(np.round(torch_pred), np.round(hls_pred)))
 
-                if i==len(graphs)-1:
-                    wrapper_pred = torch_wrapper.forward(data) #saves intermediates
-                    wrapper_pred = wrapper_pred.detach().cpu().numpy()
-                    wrapper_pred = np.reshape(wrapper_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
-                    wrapper_MAE = MAE(torch_pred, wrapper_pred)
+                    if i==len(graphs)-1:
+                        wrapper_pred = torch_wrapper.forward(data) #saves intermediates
+                        wrapper_pred = wrapper_pred.detach().cpu().numpy()
+                        wrapper_pred = np.reshape(wrapper_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
+                        wrapper_MAE = MAE(torch_pred, wrapper_pred)
 
-            print(f"With aggregation={torch_model.aggr} and flow={torch_model.flow}")
-            print(f"     single-graph wrapper-->torch MAE: {wrapper_MAE}")
-            print("")
-            for err_type in ["MAE", "MSE", "RMSE"]:#, "Accuracy", "f1"]:#, "MCE"]:
-                print(f"     with error criteria = {err_type}:")
-                print(f"          mean torch error: %s" %np.mean(all_torch_error["%s" %err_type]))
-                print(f"          mean hls error: %s" %np.mean(all_hls_error["%s" %err_type]))
-                print(f"          mean hls-->torch error: %s" %np.mean(all_torch_hls_diff["%s" %err_type]))
+                print(f"With aggregation={torch_model.aggr}, flow={torch_model.flow}, n_neurons={nn}")
+                print(f"     single-graph wrapper-->torch MAE: {wrapper_MAE}")
                 print("")
-            for score_type in ["Accuracy", "f1"]:
-                print(f"     with score criteria = {score_type}:")
-                print(f"          mean torch score: %s" %np.mean(all_torch_error["%s"%score_type]))
-                print(f"          mean hls score: %s" %np.mean(all_hls_error["%s"%score_type]))
-                print(f"          mean hls-->torch score: %s" % np.mean(all_torch_hls_diff["%s" % score_type]))
-                print("")
+                for err_type in ["MAE", "MSE", "RMSE"]:#, "Accuracy", "f1"]:#, "MCE"]:
+                    print(f"     with error criteria = {err_type}:")
+                    print(f"          mean torch error: %s" %np.mean(all_torch_error["%s" %err_type]))
+                    print(f"          mean hls error: %s" %np.mean(all_hls_error["%s" %err_type]))
+                    print(f"          mean hls-->torch error: %s" %np.mean(all_torch_hls_diff["%s" %err_type]))
+                    print("")
+                for score_type in ["Accuracy", "f1"]:
+                    print(f"     with score criteria = {score_type}:")
+                    print(f"          mean torch score: %s" %np.mean(all_torch_error["%s"%score_type]))
+                    print(f"          mean hls score: %s" %np.mean(all_hls_error["%s"%score_type]))
+                    print(f"          mean hls-->torch score: %s" % np.mean(all_torch_hls_diff["%s" % score_type]))
+                    print("")
 
 
 if __name__=="__main__":
