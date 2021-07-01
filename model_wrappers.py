@@ -8,6 +8,7 @@ class model_wrapper():
         self.model = model
 
     def EdgeBlock_forward(self, block, node_attr, edge_attr, edge_index, out_dim):
+
         # get graph dimensions
         n_node, node_dim = node_attr.shape
         n_edge, edge_dim = edge_attr.shape
@@ -16,19 +17,17 @@ class model_wrapper():
         edge_update = torch.zeros((n_edge, out_dim))
         edge_update_aggr = torch.zeros((n_node, out_dim))
 
-        # intermediate (only useful if aggr==mean)
-        num_edge_per_node = torch.zeros((n_edge,))
+        # edge counter
+        num_edge_per_node = torch.zeros((n_node,))
 
-        for i in range(n_edge): # for each edge
-
-            # get sender, receiver nodes
+        for i in range(n_edge):
+            # get receiver, sender indices
             if self.model.flow=="source_to_target":
                 s = edge_index[0, i]
                 r = edge_index[1, i]
             else:
                 s = edge_index[1, i]
                 r = edge_index[0, i]
-
             num_edge_per_node[r] += 1
 
             # construct NN input: <receiver, sender, edge>
@@ -46,13 +45,12 @@ class model_wrapper():
                 for j in range(out_dim):
                     edge_update_aggr[r, j] += edge_update[i, j]
             elif self.model.aggr == 'max':
-                if num_edge_per_node[r] <= 1: #if this is the first edge to be sent to the aggregate, there's no other
-                    # values to compare it to, i.e. it's the max by default
+                if num_edge_per_node[r] <= 1:  # if this is the first edge to be sent to the aggregate, it's the max by default
                     edge_update_aggr[r] = edge_update[i]
                 else:
                     for j in range(out_dim):
-                        if edge_update_aggr[r,j] < edge_update[i,j]:
-                            edge_update_aggr[r,j] = edge_update[i,j]
+                        if edge_update_aggr[r, j] < edge_update[i, j]:
+                            edge_update_aggr[r, j] = edge_update[i, j]
 
         # extra step for mean-aggregation
         if self.model.aggr=='mean':
@@ -71,7 +69,8 @@ class model_wrapper():
         # initialize output
         node_update = torch.zeros((n_node, out_dim))
 
-        for i in range(n_node): #for each node
+        for i in range(n_node):
+
             # construct NN input: <node, edge_aggr>
             node_i = node_attr[i]
             edge_aggr_i = edge_attr_aggr[i]
@@ -87,8 +86,8 @@ class model_wrapper():
         edge_attr = data.edge_attr
         edge_index = data.edge_index
 
-        edge_update_1, edge_update_aggr_1 = self.EdgeBlock_forward(self.model.R1, node_attr, edge_attr, edge_index, out_dim=4)  # R1
-        node_update = self.NodeBlock_forward(self.model.O, node_attr, edge_update_aggr_1, out_dim=3)  # O
-        edge_update_2, edge_update_aggr_2 = self.EdgeBlock_forward(self.model.R2, node_update, edge_update_1, edge_index, out_dim=1)  # R2
+        edge_update_1, edge_update_aggr_1 = self.EdgeBlock_forward(self.model.R1, node_attr, edge_attr, edge_index, out_dim=4)  #R1
+        node_update = self.NodeBlock_forward(self.model.O, node_attr, edge_update_aggr_1, out_dim=3)  #O
+        edge_update_2, edge_update_aggr_2 = self.EdgeBlock_forward(self.model.R2, node_update, edge_update_1, edge_index, out_dim=1)  #R2
         out = torch.sigmoid(edge_update_2)
         return out
