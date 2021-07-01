@@ -7,6 +7,7 @@ import torch
 from hls4ml.model.hls_model import HLSModel_GNN
 from hls4ml.converters.pyg_to_hls import pyg_to_hls
 from hls4ml.model.hls_layers import HLSType, IntegerPrecisionType, FixedPrecisionType
+from collections import OrderedDict
 
 # locals
 from utils.models.interaction_network_pyg import InteractionNetwork
@@ -85,7 +86,12 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     torch_model.load_state_dict(torch_model_dict)
 
     # get hls model
-    hls_model_config, reader, layer_list = pyg_to_hls(torch_model, graph_dims)
+    forward_dict = OrderedDict()
+    forward_dict["R1"] = "EdgeBlock"
+    forward_dict["O"] = "NodeBlock"
+    forward_dict["R2"] = "EdgeBlock"
+
+    hls_model_config, reader, layer_list = pyg_to_hls(torch_model, forward_dict, graph_dims)
     hls_model_config['OutputDir'] = hls_model_config['OutputDir'] + "/%s"%aggr + "/%s"%flow
     hls_model = HLSModel_GNN(hls_model_config, reader, layer_list)
     hls_model.inputs = ['node_attr', 'edge_attr', 'edge_index']

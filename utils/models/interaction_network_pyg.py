@@ -37,7 +37,6 @@ class ObjectModel(nn.Module):
     def forward(self, C):
         return self.layers(C)
 
-
 class InteractionNetwork(MessagePassing):
     def __init__(self, aggr='add', flow='source_to_target'):
         super(InteractionNetwork, self).__init__(aggr=aggr,
