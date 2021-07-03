@@ -89,12 +89,11 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     forward_dict["R1"] = "EdgeBlock"
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
-
-    hls_model_config, reader, layer_list = pyg_to_hls(torch_model, forward_dict, graph_dims)
-    hls_model_config['OutputDir'] = hls_model_config['OutputDir'] + "/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons
-    hls_model = HLSModel_GNN(hls_model_config, reader, layer_list)
-    hls_model.inputs = ['node_attr', 'edge_attr', 'edge_index']
-    hls_model.outputs = ['layer6_out_L']
+    hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
+                           activate_final='sigmoid',
+                           output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
+                           fixed_precision_bits=32,
+                           fixed_precision_int_bits=16)
     hls_model.compile()
 
     # get torch wrapper
@@ -193,7 +192,7 @@ def main():
 
                     # hls prediction
                     node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)  # np.array data
-                    hls_pred = sigmoid(hls_model.predict(node_attr, edge_attr, edge_index))
+                    hls_pred = hls_model.predict(node_attr, edge_attr, edge_index)
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
                     # get errors
