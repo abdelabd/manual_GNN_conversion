@@ -8,6 +8,7 @@ from hls4ml.model.hls_model import HLSModel_GNN
 from hls4ml.converters.pyg_to_hls import pyg_to_hls
 from hls4ml.model.hls_layers import HLSType, IntegerPrecisionType, FixedPrecisionType
 from collections import OrderedDict
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, mean_absolute_error, mean_squared_error
 
 # locals
 from utils.models.interaction_network_pyg import InteractionNetwork
@@ -23,60 +24,6 @@ class data_wrapper(object):
         self.target = target
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
-
-# error criteria
-def MAE(target, pred):
-    inside_sum = np.abs(target-pred)
-    return np.mean(inside_sum)
-def MSE(target, pred):
-    inside_sum = (target - pred)**2
-    return np.mean(inside_sum)
-def RMSE(target, pred):
-    return np.sqrt(MSE(target, pred))
-def mean_cross_entropy(target, pred, epsilon=1e-8): #keeps dividing by zero :(
-    pred_prime = np.clip(pred, epsilon, 1 - epsilon).astype(np.float64)
-    #print(min(pred_prime))
-    inside_sum = target*np.log(pred_prime)+(1-target)*np.log(1-pred_prime)
-    return -np.sum(inside_sum)/len(target)
-
-# scores
-def true_pos(target, pred):
-    tp = 0
-    for i in range(len(target)):
-        if target[i]==1 and pred[i]==1:
-            tp += 1
-    return tp
-def true_neg(target, pred):
-    tn = 0
-    for i in range(len(target)):
-        if target[i]==0 and pred[i]==0:
-            tn += 1
-    return tn
-def false_pos(target, pred):
-    fp = 0
-    for i in range(len(target)):
-        if target[i]==0 and pred[i]==1:
-            fp += 1
-    return fp
-def false_neg(target, pred):
-    fn = 0
-    for i in range(len(target)):
-        if target[i]==1 and pred[i]==0:
-            fn += 1
-    return fn
-def accuracy(target, pred):
-    num = true_pos(target, pred)+true_neg(target, pred)
-    den = num + false_pos(target, pred) + false_neg(target, pred)
-    return num/den
-def f1(target, pred):
-    tp = true_pos(target, pred)
-    fp = false_pos(target, pred)
-    fn = false_neg(target, pred)
-
-    precision = tp/(tp+fp)
-    recall = tp/(tp+fn)
-    f1 = 2*precision*recall/(precision+recall)
-    return f1
 
 def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40): #aggr = aggregation_method: ['add', 'mean', 'max']
     # get torch model
@@ -167,21 +114,24 @@ def main():
                     "MSE": [],
                     "RMSE": [],
                     'Accuracy': [],
-                    "f1": []
+                    "f1": [],
+                    "AUC": []
                 }
                 all_hls_error = {
                     "MAE": [],
                     "MSE": [],
                     "RMSE": [],
                     'Accuracy': [],
-                    "f1": []
+                    "f1": [],
+                    "AUC": []
                 }
                 all_torch_hls_diff = {
                     "MAE": [],
                     "MSE": [],
                     "RMSE": [],
                     "Accuracy": [],
-                    "f1": []
+                    "f1": [],
+                    "AUC": []
                 }
                 for i, data in enumerate(graphs):
                     target = np.reshape(data.target.detach().cpu().numpy(), newshape=(data.target.shape[0],))
@@ -196,29 +146,32 @@ def main():
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
                     # get errors
-                    all_torch_error["MAE"].append(MAE(target, torch_pred))
-                    all_torch_error["MSE"].append(MSE(target, torch_pred))
-                    all_torch_error["RMSE"].append(RMSE(target, torch_pred))
-                    all_torch_error["Accuracy"].append(accuracy(target, np.round(torch_pred)))
-                    all_torch_error["f1"].append(f1(target, np.round(torch_pred)))
+                    all_torch_error["MAE"].append(mean_absolute_error(target, torch_pred))
+                    all_torch_error["MSE"].append(mean_squared_error(target, torch_pred))
+                    all_torch_error["RMSE"].append(mean_squared_error(target, torch_pred, squared=False))
+                    all_torch_error["Accuracy"].append(accuracy_score(target, np.round(torch_pred)))
+                    all_torch_error["f1"].append(f1_score(target, np.round(torch_pred)))
+                    all_torch_error["AUC"].append(roc_auc_score(target, torch_pred))
 
-                    all_hls_error["MAE"].append(MAE(target, hls_pred))
-                    all_hls_error["MSE"].append(MSE(target, hls_pred))
-                    all_hls_error["RMSE"].append(RMSE(target, hls_pred))
-                    all_hls_error["Accuracy"].append(accuracy(target, np.round(hls_pred)))
-                    all_hls_error["f1"].append(f1(target, np.round(hls_pred)))
+                    all_hls_error["MAE"].append(mean_absolute_error(target, hls_pred))
+                    all_hls_error["MSE"].append(mean_squared_error(target, hls_pred))
+                    all_hls_error["RMSE"].append(mean_squared_error(target, hls_pred, squared=False))
+                    all_hls_error["Accuracy"].append(accuracy_score(target, np.round(hls_pred)))
+                    all_hls_error["f1"].append(f1_score(target, np.round(hls_pred)))
+                    all_hls_error["AUC"].append(roc_auc_score(target, hls_pred))
 
-                    all_torch_hls_diff["MAE"].append(MAE(torch_pred, hls_pred))
-                    all_torch_hls_diff["MSE"].append(MSE(torch_pred, hls_pred))
-                    all_torch_hls_diff["RMSE"].append(RMSE(torch_pred, hls_pred))
-                    all_torch_hls_diff["Accuracy"].append(accuracy(np.round(torch_pred), np.round(hls_pred)))
-                    all_torch_hls_diff["f1"].append(f1(np.round(torch_pred), np.round(hls_pred)))
+                    all_torch_hls_diff["MAE"].append(mean_absolute_error(torch_pred, hls_pred))
+                    all_torch_hls_diff["MSE"].append(mean_squared_error(torch_pred, hls_pred))
+                    all_torch_hls_diff["RMSE"].append(mean_squared_error(torch_pred, hls_pred, squared=False))
+                    all_torch_hls_diff["Accuracy"].append(accuracy_score(np.round(torch_pred), np.round(hls_pred)))
+                    all_torch_hls_diff["f1"].append(f1_score(np.round(torch_pred), np.round(hls_pred)))
+                    all_torch_hls_diff["AUC"].append(roc_auc_score(np.round(torch_pred), hls_pred))
 
                     if i==len(graphs)-1:
                         wrapper_pred = torch_wrapper.forward(data) #saves intermediates
                         wrapper_pred = wrapper_pred.detach().cpu().numpy()
                         wrapper_pred = np.reshape(wrapper_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
-                        wrapper_MAE = MAE(torch_pred, wrapper_pred)
+                        wrapper_MAE = mean_absolute_error(torch_pred, wrapper_pred)
 
                 print(f"With aggregation={torch_model.aggr}, flow={torch_model.flow}, n_neurons={nn}")
                 print(f"     single-graph wrapper-->torch MAE: {wrapper_MAE}")
@@ -229,7 +182,7 @@ def main():
                     print(f"          mean hls error: %s" %np.mean(all_hls_error["%s" %err_type]))
                     print(f"          mean hls-->torch error: %s" %np.mean(all_torch_hls_diff["%s" %err_type]))
                     print("")
-                for score_type in ["Accuracy", "f1"]:
+                for score_type in ["Accuracy", "f1", "AUC"]:
                     print(f"     with score criteria = {score_type}:")
                     print(f"          mean torch score: %s" %np.mean(all_torch_error["%s"%score_type]))
                     print(f"          mean hls score: %s" %np.mean(all_hls_error["%s"%score_type]))
