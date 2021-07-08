@@ -22,10 +22,8 @@ class data_wrapper(object):
         self.edge_attr = edge_attr
         self.edge_index = edge_index.transpose(0,1)
         self.target = target
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
 
-def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40): #aggr = aggregation_method: ['add', 'mean', 'max']
+def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, fp_bits=16): #aggr = aggregation_method: ['add', 'mean', 'max']
     # get torch model
     torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
     torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
@@ -36,11 +34,14 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     forward_dict["R1"] = "EdgeBlock"
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
+    if fp_bits==16:
+        fpib=6
+    else: fpib=int(fp_bits/2)
     hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
                            activate_final='sigmoid',
                            output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
-                           fixed_precision_bits=32,
-                           fixed_precision_int_bits=16)
+                           fixed_precision_bits=fp_bits,
+                           fixed_precision_int_bits=fpib)
     # get torch wrapper
     torch_wrapper = model_wrapper(torch_model)
 
@@ -51,8 +52,9 @@ def parse_args():
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
     add_arg('--n-graphs', type=int, default=1)
-    add_arg('--aggregation-method', type=str, default='add', help='[add, mean, max, all]')
+    add_arg('--aggregation', type=str, default='add', help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', help='[source_to_target, target_to_source, all]')
+    add_arg('--fp-bits', type=int, default=16)
     add_arg('--max-nodes', type=int, default=112)
     add_arg('--max-edges', type=int, default=148)
     add_arg('--n-neurons', type=int, default=40)
@@ -64,9 +66,9 @@ def main():
     with open(args.config) as f:
         config = yaml.load(f, yaml.FullLoader)
 
-    if args.aggregation_method=='all':
+    if args.aggregation=='all':
         aggregations = ['add', 'mean', 'max']
-    else: aggregations = [args.aggregation_method]
+    else: aggregations = [args.aggregation]
 
     if args.flow == 'all':
         flows = ['source_to_target', 'target_to_source']
@@ -112,7 +114,7 @@ def main():
     for a in aggregations:
         for f in flows:
             for nn in n_neurons:
-                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn)
+                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, fp_bits=args.fp_bits)
 
                 all_torch_error = {
                     "MAE": [],
@@ -160,21 +162,30 @@ def main():
                     all_torch_error["RMSE"].append(mean_squared_error(target, torch_pred, squared=False))
                     all_torch_error["Accuracy"].append(accuracy_score(target, np.round(torch_pred)))
                     all_torch_error["f1"].append(f1_score(target, np.round(torch_pred)))
-                    all_torch_error["AUC"].append(roc_auc_score(target, torch_pred))
+                    try:
+                        all_torch_error["AUC"].append(roc_auc_score(target, torch_pred))
+                    except ValueError:
+                        all_torch_error["AUC"].append(0.5) #0.5=random number generator
 
                     all_hls_error["MAE"].append(mean_absolute_error(target, hls_pred))
                     all_hls_error["MSE"].append(mean_squared_error(target, hls_pred))
                     all_hls_error["RMSE"].append(mean_squared_error(target, hls_pred, squared=False))
                     all_hls_error["Accuracy"].append(accuracy_score(target, np.round(hls_pred)))
                     all_hls_error["f1"].append(f1_score(target, np.round(hls_pred)))
-                    all_hls_error["AUC"].append(roc_auc_score(target, hls_pred))
+                    try:
+                        all_hls_error["AUC"].append(roc_auc_score(target, hls_pred))
+                    except:
+                        all_hls_error["AUC"].append(0.5)
 
                     all_torch_hls_diff["MAE"].append(mean_absolute_error(torch_pred, hls_pred))
                     all_torch_hls_diff["MSE"].append(mean_squared_error(torch_pred, hls_pred))
                     all_torch_hls_diff["RMSE"].append(mean_squared_error(torch_pred, hls_pred, squared=False))
                     all_torch_hls_diff["Accuracy"].append(accuracy_score(np.round(torch_pred), np.round(hls_pred)))
                     all_torch_hls_diff["f1"].append(f1_score(np.round(torch_pred), np.round(hls_pred)))
-                    all_torch_hls_diff["AUC"].append(roc_auc_score(np.round(torch_pred), hls_pred))
+                    try:
+                        all_torch_hls_diff["AUC"].append(roc_auc_score(np.round(torch_pred), hls_pred))
+                    except ValueError:
+                        all_torch_hls_diff["AUC"].append(0.5)
 
                     if i==len(graphs)-1:
                         wrapper_pred = torch_wrapper.forward(data) #saves intermediates
