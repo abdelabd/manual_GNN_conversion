@@ -36,9 +36,7 @@ def prep_GNN_for_hls(model):
             'NodeAttr': [n, p],
             'EdgeIndex': [2, m]
     }
-    config['InputEdgeData'] = 'tb_data/input_edge_data.dat'
-    config['InputNodeData'] = 'tb_data/input_node_data.dat'
-    config['InputEdgeIndex'] = 'tb_data/input_edge_index.dat'
+    config['InputData'] = 'tb_data/input_data.dat'
     config['OutputPredictions'] = 'tb_data/output_predictions.dat'
 
     model_config = {

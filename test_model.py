@@ -41,8 +41,6 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                            output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
                            fixed_precision_bits=32,
                            fixed_precision_int_bits=16)
-    hls_model.compile()
-
     # get torch wrapper
     torch_wrapper = model_wrapper(torch_model)
 
@@ -104,6 +102,13 @@ def main():
             graphs.append(data_wrapper(node_attr, edge_attr, edge_index, target))
     print(f"n_graphs: {len(graphs)}")
 
+    print("writing test bench data for 1st graph")
+    data = graphs[0]
+    node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)
+    os.makedirs('tb_data',exist_ok=True)
+    input_data = np.concatenate([node_attr.reshape(1, -1), edge_attr.reshape(1, -1), edge_index.reshape(1, -1)], axis=1)
+    np.savetxt('tb_data/input_data.dat', input_data, fmt='%f', delimiter=' ')
+
     for a in aggregations:
         for f in flows:
             for nn in n_neurons:
@@ -139,9 +144,13 @@ def main():
                     # torch prediction
                     torch_pred = torch_model(data).detach().cpu().numpy()
                     torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
+                    if i==0: np.savetxt('tb_data/output_predictions.dat', torch_pred.reshape(1, -1), fmt='%f', delimiter=' ')
+    
 
                     # hls prediction
                     node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)  # np.array data
+
+                    if i==0: hls_model.compile()
                     hls_pred = hls_model.predict(node_attr, edge_attr, edge_index)
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
