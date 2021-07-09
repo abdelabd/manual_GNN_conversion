@@ -23,7 +23,7 @@ class data_wrapper(object):
         self.edge_index = edge_index.transpose(0,1)
         self.target = target
 
-def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, fp_bits=16): #aggr = aggregation_method: ['add', 'mean', 'max']
+def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, fp_bits=16, output_dir=""): #aggr = aggregation_method: ['add', 'mean', 'max']
     # get torch model
     torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
     torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
@@ -34,14 +34,19 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     forward_dict["R1"] = "EdgeBlock"
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
-    if fp_bits==16:
-        fpib=6
-    else: fpib=int(fp_bits/2)
-    hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
+    if output_dir=="":
+        hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
                            activate_final='sigmoid',
                            output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
                            fixed_precision_bits=fp_bits,
-                           fixed_precision_int_bits=fpib)
+                           fixed_precision_int_bits=int(fp_bits/2))
+    else:
+        hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
+                               activate_final='sigmoid',
+                               output_dir="/%s"%output_dir,
+                               fixed_precision_bits=fp_bits,
+                               fixed_precision_int_bits=int(fp_bits/2))
+
     # get torch wrapper
     torch_wrapper = model_wrapper(torch_model)
 
@@ -55,6 +60,7 @@ def parse_args():
     add_arg('--aggregation', type=str, default='add', help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', help='[source_to_target, target_to_source, all]')
     add_arg('--fp-bits', type=int, default=16)
+    add_arg('--output-dir', type=str, default="")
     add_arg('--max-nodes', type=int, default=112)
     add_arg('--max-edges', type=int, default=148)
     add_arg('--n-neurons', type=int, default=40)
@@ -114,7 +120,7 @@ def main():
     for a in aggregations:
         for f in flows:
             for nn in n_neurons:
-                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, fp_bits=args.fp_bits)
+                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, fp_bits=args.fp_bits, output_dir=args.output_dir)
 
                 all_torch_error = {
                     "MAE": [],
@@ -152,7 +158,13 @@ def main():
                     # hls prediction
                     node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)  # np.array data
 
-                    if i==0: hls_model.compile()
+                    if i==0:
+                        hls_model.compile()
+                        print("Model compiled at: ", hls_model.config.get_output_dir())
+                        hls_config = f"aggregation: {a} \nflow: {f} \nn_neurons: {nn} \nfp_bits: {args.fp_bits} \ngraph_dims: {graph_dims}"
+                        with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as f:
+                            f.write(hls_config)
+
                     hls_pred = hls_model.predict(node_attr, edge_attr, edge_index)
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
