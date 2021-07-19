@@ -19,6 +19,7 @@ class model_wrapper():
 
         # edge counter
         num_edge_per_node = torch.zeros((n_node,))
+        edge_aggr_mask = torch.zeros((n_node,))
 
         for i in range(n_edge):
             # get receiver, sender indices
@@ -29,6 +30,7 @@ class model_wrapper():
                 s = edge_index[1, i]
                 r = edge_index[0, i]
             num_edge_per_node[r] += 1
+            edge_aggr_mask[r] = 1
 
             # construct NN input: <receiver, sender, edge>
             edge_i = edge_attr[i, :]  # edge
