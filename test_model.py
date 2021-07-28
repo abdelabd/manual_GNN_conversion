@@ -23,7 +23,7 @@ class data_wrapper(object):
         self.edge_index = edge_index.transpose(0,1)
         self.target = target
 
-def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, fp_bits=16, output_dir=""): #aggr = aggregation_method: ['add', 'mean', 'max']
+def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, fp_bits=16, output_dir="", reuse=1):
     # get torch model
     torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
     torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
@@ -39,13 +39,15 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                            activate_final='sigmoid',
                            output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
                            fixed_precision_bits=fp_bits,
-                           fixed_precision_int_bits=int(fp_bits/2))
+                           fixed_precision_int_bits=int(fp_bits/2),
+                           reuse=reuse)
     else:
         hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
                                activate_final='sigmoid',
                                output_dir="/%s"%output_dir,
                                fixed_precision_bits=fp_bits,
-                               fixed_precision_int_bits=int(fp_bits/2))
+                               fixed_precision_int_bits=int(fp_bits/2),
+                               reuse=reuse)
 
     # get torch wrapper
     torch_wrapper = model_wrapper(torch_model)
@@ -64,6 +66,7 @@ def parse_args():
     add_arg('--max-nodes', type=int, default=112, help='max number of nodes')
     add_arg('--max-edges', type=int, default=148, help='max number of edges')
     add_arg('--n-neurons', type=int, default=40, choices=[8,40], help='number of neurons')
+    add_arg('--reuse', type=int, default=1, help="reuse factor")
     add_arg('--save-errors', action='store_true')
     return parser.parse_args()
 
@@ -120,7 +123,7 @@ def main():
     for a in aggregations:
         for f in flows:
             for nn in n_neurons:
-                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, fp_bits=args.fp_bits, output_dir=args.output_dir)
+                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, fp_bits=args.fp_bits, output_dir=args.output_dir, reuse=args.reuse)
 
                 all_torch_error = {
                     "MAE": [],
@@ -161,7 +164,7 @@ def main():
                     if i==0:
                         hls_model.compile()
                         print("Model compiled at: ", hls_model.config.get_output_dir())
-                        hls_config = f"aggregation: {a} \nflow: {f} \nn_neurons: {nn} \nfp_bits: {args.fp_bits} \ngraph_dims: {graph_dims}"
+                        hls_config = f"aggregation: {a} \nflow: {f} \nn_neurons: {nn} \nfp_bits: {args.fp_bits} \ngraph_dims: {graph_dims} \nreuse_factor: {args.reuse}"
                         with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as f:
                             f.write(hls_config)
 
