@@ -36,11 +36,11 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     forward_dict["R2"] = "EdgeBlock"
     if output_dir=="":
         hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
-                           activate_final='sigmoid',
-                           output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
-                           fixed_precision_bits=fp_bits,
-                           fixed_precision_int_bits=int(fp_bits/2),
-                           reuse=reuse)
+                               activate_final='sigmoid',
+                               output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
+                               fixed_precision_bits=fp_bits,
+                               fixed_precision_int_bits=int(fp_bits/2),
+                               reuse=reuse)
     else:
         hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
                                activate_final='sigmoid',
@@ -58,16 +58,15 @@ def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
+    add_arg('--max-nodes', type=int, default=112, help='max number of nodes')
+    add_arg('--max-edges', type=int, default=148, help='max number of edges')
+    add_arg('--n-neurons', type=int, default=40, choices=[8, 40], help='number of neurons')
     add_arg('--n-graphs', type=int, default=1)
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
     add_arg('--fp-bits', type=int, default=16, help='number of fixed point bits')
-    add_arg('--output-dir', type=str, default="", help='output directory')
-    add_arg('--max-nodes', type=int, default=112, help='max number of nodes')
-    add_arg('--max-edges', type=int, default=148, help='max number of edges')
-    add_arg('--n-neurons', type=int, default=40, choices=[8,40], help='number of neurons')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
-    add_arg('--save-errors', action='store_true')
+    add_arg('--output-dir', type=str, default="", help='output directory')
     return parser.parse_args()
 
 def main():
@@ -156,7 +155,6 @@ def main():
                     torch_pred = torch_model(data).detach().cpu().numpy()
                     torch_pred = np.reshape(torch_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
                     if i==0: np.savetxt('tb_data/output_predictions.dat', torch_pred.reshape(1, -1), fmt='%f', delimiter=' ')
-    
 
                     # hls prediction
                     node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)  # np.array data
