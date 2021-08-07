@@ -169,7 +169,7 @@ def main():
                         with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as f:
                             f.write(model_config)
 
-                    hls_pred = hls_model.predict([node_attr, edge_attr, edge_index])
+                    hls_pred = hls_model.predict([node_attr, edge_attr, edge_index.astype(np.float32)])
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
                     # get errors
