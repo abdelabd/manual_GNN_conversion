@@ -4,9 +4,7 @@ import argparse
 import numpy as np
 import torch
 
-from hls4ml.model.hls_model import HLSModel
 from hls4ml.converters.pyg_to_hls import pyg_to_hls
-from hls4ml.model.hls_layers import HLSType, IntegerPrecisionType, FixedPrecisionType
 from collections import OrderedDict
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, mean_absolute_error, mean_squared_error
 
@@ -61,10 +59,10 @@ def parse_args():
     add_arg('--max-nodes', type=int, default=112, help='max number of nodes')
     add_arg('--max-edges', type=int, default=148, help='max number of edges')
     add_arg('--n-neurons', type=int, default=40, choices=[8, 40], help='number of neurons')
-    add_arg('--n-graphs', type=int, default=1)
+    add_arg('--n-graphs', type=int, default=100)
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
-    add_arg('--fp-bits', type=int, default=16, help='number of fixed point bits')
+    add_arg('--fp-bits', type=int, default=32, help='number of fixed point bits')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
     add_arg('--output-dir', type=str, default="", help='output directory')
     return parser.parse_args()
@@ -162,38 +160,12 @@ def main():
                     if i==0:
                         hls_model.compile()
 
-                        print("")
-                        print("hls_model.outputs:")
-                        for i in hls_model.outputs: print(i, "\n")
-
-                        print("")
-                        print("hls_model.inputs:")
-                        for i in hls_model.inputs: print(i, "\n")
-
-                        print("")
-                        print(f"hls_model.graph:")
-                        for v, k in hls_model.graph.items(): print(f"v: {v}, k: {k} \n")
-
-                        print("")
-                        print(f"node_attr: {hls_model.graph['node_attr']}")
-
-                        print("")
-                        print(f"final_act: {hls_model.graph['final_act']}")
-
-                        print(f"final_act output var: {hls_model.get_layer_output_variable('final_act')}")
-
-                        print("hls_model.config.config:")
-                        for k,v in hls_model.config.config.items():
-                            print(f"{k}: {v}")
-
                         print("Model compiled at: ", hls_model.config.get_output_dir())
                         model_config = f"aggregation: {a} \nflow: {f} \nn_neurons: {nn} \nfp_bits: {args.fp_bits} \ngraph_dims: {graph_dims} \nreuse_factor: {args.reuse}"
                         with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as f:
                             f.write(model_config)
 
-                    hls_inputs = {"node_attr": node_attr, "edge_attr": edge_attr, "edge_index": edge_index}
-                    #hls_pred = hls_model.predict(hls_inputs)
-                    hls_pred = hls_model.predict(node_attr, edge_attr, edge_index)
+                    hls_pred = hls_model.predict([node_attr, edge_attr, edge_index])
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
                     # get errors
