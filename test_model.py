@@ -4,7 +4,8 @@ import argparse
 import numpy as np
 import torch
 
-from hls4ml.converters.pyg_to_hls import pyg_to_hls
+from hls4ml.utils.config import config_from_pyg_model
+from hls4ml.converters import convert_from_pyg_model
 from collections import OrderedDict
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, mean_absolute_error, mean_squared_error
 
@@ -32,20 +33,23 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     forward_dict["R1"] = "EdgeBlock"
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
-    if output_dir=="":
-        hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
-                               activate_final='sigmoid',
-                               output_dir="/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons,
-                               fixed_precision_bits=fp_bits,
-                               fixed_precision_int_bits=int(fp_bits/2),
-                               reuse=reuse)
-    else:
-        hls_model = pyg_to_hls(torch_model, forward_dict, graph_dims,
-                               activate_final='sigmoid',
-                               output_dir="/%s"%output_dir,
-                               fixed_precision_bits=fp_bits,
-                               fixed_precision_int_bits=int(fp_bits/2),
-                               reuse=reuse)
+
+    if output_dir == "":
+        output_dir = "hls_output/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons
+
+    config = config_from_pyg_model(torch_model,
+                                   default_precision='ap_fixed<{},6>'.format(fp_bits), 
+                                   default_index_precision='ap_uint<16>', 
+                                   default_reuse_factor=reuse)
+    hls_model = convert_from_pyg_model(torch_model,
+                                       n_edge=graph_dims['n_edge'],
+                                       n_node=graph_dims['n_node'],
+                                       edge_dim=graph_dims['edge_dim'],
+                                       node_dim=graph_dims['node_dim'],
+                                       forward_dictionary=forward_dict, 
+                                       activate_final='sigmoid',
+                                       output_dir=output_dir,
+                                       hls_config=config)
 
     # get torch wrapper
     torch_wrapper = model_wrapper(torch_model)
@@ -62,7 +66,7 @@ def parse_args():
     add_arg('--n-graphs', type=int, default=100)
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
-    add_arg('--fp-bits', type=int, default=32, help='number of fixed point bits')
+    add_arg('--fp-bits', type=int, default=16, help='number of fixed point bits')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
     add_arg('--output-dir', type=str, default="", help='output directory')
     return parser.parse_args()
