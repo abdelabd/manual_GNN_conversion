@@ -66,7 +66,7 @@ def parse_args():
     add_arg('--n-graphs', type=int, default=100)
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
-    add_arg('--precision', type=str, default='ap_fixed<16,6>', help='precision to use')
+    add_arg('--precision', type=str, default='ap_fixed<16,8>', help='precision to use')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
     add_arg('--output-dir', type=str, default="", help='output directory')
     add_arg('--synth',action='store_true', help='whether to synthesize')
@@ -126,7 +126,6 @@ def main():
         for f in flows:
             for nn in n_neurons:
                 torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, precision=args.precision, output_dir=args.output_dir, reuse=args.reuse)
-
                 all_torch_error = {
                     "MAE": [],
                     "MSE": [],
@@ -167,8 +166,8 @@ def main():
 
                         print("Model compiled at: ", hls_model.config.get_output_dir())
                         model_config = f"aggregation: {a} \nflow: {f} \nn_neurons: {nn} \nprecision: {args.precision} \ngraph_dims: {graph_dims} \nreuse_factor: {args.reuse}"
-                        with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as f:
-                            f.write(model_config)
+                        with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as file:
+                            file.write(model_config)
 
                     hls_pred = hls_model.predict([node_attr, edge_attr, edge_index.astype(np.float32)])
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
