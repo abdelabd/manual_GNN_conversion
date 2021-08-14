@@ -15,47 +15,6 @@ from model_wrappers import model_wrapper
 from utils.data.dataset_pyg import GraphDataset
 from utils.data.fix_graph_size import fix_graph_size
 
-class data_wrapper(object):
-    def __init__(self, node_attr, edge_attr, edge_index, target):
-        self.x = node_attr
-        self.edge_attr = edge_attr
-        self.edge_index = edge_index.transpose(0,1)
-        self.target = target
-
-def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, precision='ap_fixed<16,8>', output_dir="", reuse=1):
-    # get torch model
-    torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
-    torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
-    torch_model.load_state_dict(torch_model_dict)
-
-    # get hls model
-    forward_dict = OrderedDict()
-    forward_dict["R1"] = "EdgeBlock"
-    forward_dict["O"] = "NodeBlock"
-    forward_dict["R2"] = "EdgeBlock"
-
-    if output_dir == "":
-        output_dir = "hls_output/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons
-
-    config = config_from_pyg_model(torch_model,
-                                   default_precision=precision,
-                                   default_index_precision='ap_uint<16>', 
-                                   default_reuse_factor=reuse)
-    hls_model = convert_from_pyg_model(torch_model,
-                                       n_edge=graph_dims['n_edge'],
-                                       n_node=graph_dims['n_node'],
-                                       edge_dim=graph_dims['edge_dim'],
-                                       node_dim=graph_dims['node_dim'],
-                                       forward_dictionary=forward_dict, 
-                                       activate_final='sigmoid',
-                                       output_dir=output_dir,
-                                       hls_config=config)
-
-    # get torch wrapper
-    torch_wrapper = model_wrapper(torch_model)
-
-    return torch_model, hls_model, torch_wrapper
-
 def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
@@ -70,46 +29,48 @@ def parse_args():
     add_arg('--reuse', type=int, default=1, help="reuse factor")
     add_arg('--output-dir', type=str, default="", help='output directory')
     add_arg('--synth',action='store_true', help='whether to synthesize')
-    return parser.parse_args()
 
-def main():
-    args = parse_args()
-    with open(args.config) as f:
-        config = yaml.load(f, yaml.FullLoader)
-
+    args = parser.parse_args()
     if args.aggregation=='all':
-        aggregations = ['add', 'mean', 'max']
-    else: aggregations = [args.aggregation]
+        args.aggregation = ['add', 'mean', 'max']
+    else: args.aggregation = [args.aggregation]
 
     if args.flow == 'all':
-        flows = ['source_to_target', 'target_to_source']
-    else: flows = [args.flow]
+        args.flow = ['source_to_target', 'target_to_source']
+    else: args.flow = [args.flow]
 
     if args.n_neurons == 'all':
-        n_neurons = [8,40]
-    else: n_neurons = [args.n_neurons]
+        args.n_neurons = [8,40]
+    else: args.n_neurons = [args.n_neurons]
 
-    # dataset
-    graph_indir = config['graph_indir']
+    return args
+
+class data_wrapper(object):
+    def __init__(self, node_attr, edge_attr, edge_index, target):
+        self.x = node_attr
+        self.edge_attr = edge_attr
+        self.edge_index = edge_index.transpose(0,1)
+
+        node_attr, edge_attr, edge_index = self.x.detach().cpu().numpy(), self.edge_attr.detach().cpu().numpy(), self.edge_index.transpose(0, 1).detach().cpu().numpy().astype(np.float32)
+        node_attr, edge_attr, edge_index = np.ascontiguousarray(node_attr), np.ascontiguousarray(edge_attr), np.ascontiguousarray(edge_index)
+        self.hls_data = [node_attr, edge_attr, edge_index]
+
+        self.target = target
+        self.np_target = np.reshape(target.detach().cpu().numpy(), newshape=(target.shape[0],))
+
+def load_graphs(graph_indir, graph_dims, n_graphs):
     graph_files = np.array(os.listdir(graph_indir))
     graph_files = np.array([os.path.join(graph_indir, graph_file)
-                                for graph_file in graph_files])
-    n_graphs = len(graph_files)
-    IDs = np.arange(n_graphs)
+                            for graph_file in graph_files])
+    n_graphs_total = len(graph_files)
+    IDs = np.arange(n_graphs_total)
     dataset = GraphDataset(graph_files=graph_files[IDs])
 
-    # get fixed_size graphs
-    graph_dims = {
-        "n_node": args.max_nodes,
-        "n_edge": args.max_edges,
-        "node_dim": 3,
-        "edge_dim": 4
-    }
     graphs = []
-    for data in dataset[:args.n_graphs]:
+    for data in dataset[:n_graphs]:
         node_attr, edge_attr, edge_index, bad_graph = fix_graph_size(data.x, data.edge_attr, data.edge_index,
-                                                                           n_node_max=graph_dims['n_node'],
-                                                                           n_edge_max=graph_dims['n_edge'])
+                                                                     n_node_max=graph_dims['n_node'],
+                                                                     n_edge_max=graph_dims['n_edge'])
         if not bad_graph:
             target = data.y
             graphs.append(data_wrapper(node_attr, edge_attr, edge_index, target))
@@ -117,14 +78,72 @@ def main():
 
     print("writing test bench data for 1st graph")
     data = graphs[0]
-    node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)
-    os.makedirs('tb_data',exist_ok=True)
+    node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(
+        0, 1).detach().cpu().numpy().astype(np.int32)
+    os.makedirs('tb_data', exist_ok=True)
     input_data = np.concatenate([node_attr.reshape(1, -1), edge_attr.reshape(1, -1), edge_index.reshape(1, -1)], axis=1)
     np.savetxt('tb_data/input_data.dat', input_data, fmt='%f', delimiter=' ')
 
-    for a in aggregations:
-        for f in flows:
-            for nn in n_neurons:
+    return graphs
+
+def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, precision='ap_fixed<16,8>', output_dir="", reuse=1):
+    # get torch model
+    torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
+    torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
+    torch_model.load_state_dict(torch_model_dict)
+
+    # forward_dict: defines the order in which graph-blocks are called in the model's 'forward()' method
+    forward_dict = OrderedDict()
+    forward_dict["R1"] = "EdgeBlock"
+    forward_dict["O"] = "NodeBlock"
+    forward_dict["R2"] = "EdgeBlock"
+
+    # get hls model
+    if output_dir == "":
+        output_dir = "hls_output/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons
+    config = config_from_pyg_model(torch_model,
+                                   default_precision=precision,
+                                   default_index_precision='ap_uint<16>', 
+                                   default_reuse_factor=reuse)
+    hls_model = convert_from_pyg_model(torch_model,
+                                       n_edge=graph_dims['n_edge'],
+                                       n_node=graph_dims['n_node'],
+                                       edge_dim=graph_dims['edge_dim'],
+                                       node_dim=graph_dims['node_dim'],
+                                       forward_dictionary=forward_dict, 
+                                       activate_final='sigmoid',
+                                       output_dir=output_dir,
+                                       hls_config=config)
+
+    hls_model.compile()
+    print("Model compiled at: ", hls_model.config.get_output_dir())
+    model_config = f"aggregation: {aggr} \nflow: {flow} \nn_neurons: {n_neurons} \nprecision: {precision} \ngraph_dims: {graph_dims} \nreuse_factor: {reuse}"
+    with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as file:
+        file.write(model_config)
+
+    # get torch wrapper
+    torch_wrapper = model_wrapper(torch_model)
+
+    return torch_model, hls_model, torch_wrapper
+
+def main():
+    args = parse_args()
+    with open(args.config) as f:
+        config = yaml.load(f, yaml.FullLoader)
+
+    # dataset
+    graph_indir = config['graph_indir']
+    graph_dims = {
+        "n_node": args.max_nodes,
+        "n_edge": args.max_edges,
+        "node_dim": 3,
+        "edge_dim": 4
+    }
+    graphs = load_graphs(graph_indir, graph_dims, args.n_graphs)
+
+    for a in args.aggregation:
+        for f in args.flow:
+            for nn in args.n_neurons:
                 torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, precision=args.precision, output_dir=args.output_dir, reuse=args.reuse)
                 all_torch_error = {
                     "MAE": [],
@@ -151,7 +170,7 @@ def main():
                     "AUC": []
                 }
                 for i, data in enumerate(graphs):
-                    target = np.reshape(data.target.detach().cpu().numpy(), newshape=(data.target.shape[0],))
+                    target = data.np_target
 
                     # torch prediction
                     torch_pred = torch_model(data).detach().cpu().numpy()
@@ -159,17 +178,7 @@ def main():
                     if i==0: np.savetxt('tb_data/output_predictions.dat', torch_pred.reshape(1, -1), fmt='%f', delimiter=' ')
 
                     # hls prediction
-                    node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(0,1).detach().cpu().numpy().astype(np.int32)  # np.array data
-
-                    if i==0:
-                        hls_model.compile()
-
-                        print("Model compiled at: ", hls_model.config.get_output_dir())
-                        model_config = f"aggregation: {a} \nflow: {f} \nn_neurons: {nn} \nprecision: {args.precision} \ngraph_dims: {graph_dims} \nreuse_factor: {args.reuse}"
-                        with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as file:
-                            file.write(model_config)
-
-                    hls_pred = hls_model.predict([node_attr, edge_attr, edge_index.astype(np.float32)])
+                    hls_pred = hls_model.predict(data.hls_data)
                     hls_pred = np.reshape(hls_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
 
                     # get errors
