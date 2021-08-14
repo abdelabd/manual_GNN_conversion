@@ -129,10 +129,6 @@ def get_single_ROC(target, pred, density):
         new_pred = np.zeros(len(pred))
         new_pred[pred>=disc]=1
 
-        tp = true_pos(target, new_pred)
-        tn = true_neg(target, new_pred)
-        fp = false_pos(target, new_pred)
-        fn = false_neg(target, new_pred)
         tpr[i] = true_pos_rate(target, new_pred)
         fpr[i] = false_pos_rate(target, new_pred)
 
