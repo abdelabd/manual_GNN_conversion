@@ -44,6 +44,7 @@ class InteractionNetwork(MessagePassing):
         self.R1 = RelationalModel(10, 4, hidden_size)
         self.O = ObjectModel(7, 3, hidden_size)
         self.R2 = RelationalModel(10, 1, hidden_size)
+        self.n_neurons = hidden_size
 
     def forward(self, data):
         x = data.x
