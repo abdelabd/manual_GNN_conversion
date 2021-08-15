@@ -27,3 +27,4 @@ dependencies:
     - git+https://github.com/abdelabd/hls4ml/tree/pyg_to_hls_rebase
     - scipy
     - scikit-learn
+    - mplhep
