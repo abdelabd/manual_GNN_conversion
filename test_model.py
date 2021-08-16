@@ -68,11 +68,11 @@ def load_graphs(graph_indir, graph_dims, n_graphs):
 
     graphs = []
     for data in dataset[:n_graphs]:
-        node_attr, edge_attr, edge_index, bad_graph = fix_graph_size(data.x, data.edge_attr, data.edge_index,
-                                                                     n_node_max=graph_dims['n_node'],
-                                                                     n_edge_max=graph_dims['n_edge'])
+        node_attr, edge_attr, edge_index, target, bad_graph = fix_graph_size(data.x, data.edge_attr, data.edge_index,
+                                                                             data.y,
+                                                                             n_node_max=graph_dims['n_node'],
+                                                                             n_edge_max=graph_dims['n_edge'])
         if not bad_graph:
-            target = data.y
             graphs.append(data_wrapper(node_attr, edge_attr, edge_index, target))
     print(f"n_graphs: {len(graphs)}")
 
