@@ -60,9 +60,9 @@ def parse_args():
     add_arg('--output-dir', type=str, default="")
     add_arg('--n-graphs', type=int, default=100)
     add_arg('--max-nodes', type=int, default=112)
-    add_arg('--max-edges', type=int, default=148)
+    add_arg('--max-edges', type=int, default=204)
     add_arg('--aggregation', type=str, default='add', help='[add, mean, max, all]')
-    add_arg('--n-neurons', type=str, default="40")
+    add_arg('--n-neurons', type=str, default="8")
 
     args = parser.parse_args()
 
@@ -88,7 +88,7 @@ def main():
         config = yaml.load(file, yaml.FullLoader)
 
     # dataset
-    graph_indir = config['graph_indir']
+    graph_indir = 'trackml_data/processed_plus_pyg_small'
     graph_dims = {
         "n_node": args.max_nodes,
         "n_edge": args.max_edges,
@@ -145,20 +145,33 @@ def main():
             fpr_torch, tpr_torch, _ = roc_curve(target_all, torch_pred_all)
             auc_torch = auc(fpr_torch, tpr_torch)*100.
             plt.figure()
-            plt.plot(fpr_torch, tpr_torch, "r", label=f"PyTorch, AUC = {auc_torch:.1f}%")
+            plt.plot(fpr_torch, tpr_torch, "r", label=f"PyTorch, AUC = {auc_torch:.1f}%", linewidth=2)
             fpr_hls, tpr_hls, auc_hls = {}, {}, {}
             linestyles = ['dotted', 'dashed', 'dashdot', (0, (1, 10)), (0, (5, 10)), (0, (3, 10, 1, 10))]
             for precision, linestyle in zip(precisions, linestyles):
                 fpr_hls[precision], tpr_hls[precision], _ = roc_curve(target_all, hls_pred_all[precision])
                 auc_hls[precision] = auc(fpr_hls[precision], tpr_hls[precision])*100.
                 precision_label = precision.replace('ap_fixed','')
-                plt.plot(fpr_hls[precision], tpr_hls[precision], label=f'{precision_label}, AUC = {auc_hls[precision]:.1f}%', linestyle=linestyle)
-            plt.legend(title=f"{a} aggregation, {nn} hidden neurons")
+                plt.plot(fpr_hls[precision], tpr_hls[precision], label=f'{precision_label}, AUC = {auc_hls[precision]:.1f}%', linestyle=linestyle, linewidth=2)
+            plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges\n{a} aggregation, {nn} neurons")
             plt.semilogx()
+            plt.tight_layout()
             plt.xlabel('False positive rate')
             plt.ylabel('True positive rate')
             plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/ROC.png")
             plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/ROC.pdf")
+            plt.close()
+
+            plt.figure()
+            plt.plot(fp_bits, [auc_hls[precision] for precision in precisions], label='hls4ml', linewidth=2, marker='o')
+            plt.plot(fp_bits, [auc_torch for fp_bit in fp_bits], label='PyTorch (expected)',linestyle='--', color='gray', linewidth=2)
+
+            plt.xlabel('Total bits')
+            plt.ylabel('AUC [%]')
+            plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges\n{a} aggregation, {nn} neurons")
+            plt.tight_layout()
+            plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/AUC.png")
+            plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/AUC.pdf")
             plt.close()
 
 if __name__=="__main__":
