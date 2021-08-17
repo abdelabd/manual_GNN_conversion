@@ -13,8 +13,6 @@ from collections import OrderedDict
 
 # locals
 from utils.models.interaction_network_pyg import InteractionNetwork
-from utils.data.dataset_pyg import GraphDataset
-from utils.data.fix_graph_size import fix_graph_size
 
 # helpers
 def parse_args():
@@ -43,32 +41,29 @@ def parse_args():
 
     return args
 
-def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, output_dir=""):
+def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
     # forward_dict: defines the order in which graph-blocks are called in the model's 'forward()' method
     forward_dict = OrderedDict()
     forward_dict["R1"] = "EdgeBlock"
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
 
-    if output_dir == "":
-        precision_str = precision.replace("<", "_")
-        precision_str = precision_str.replace(", ", "_")
-        precision_str = precision_str.replace(">", "")
+    precision_str = precision.replace("<", "_")
+    precision_str = precision_str.replace(", ", "_")
+    precision_str = precision_str.replace(",", "_")
+    precision_str = precision_str.replace(">", "")
+    output_dir = "hls_output/" + "%s"%torch_model.aggr + "/%s"%torch_model.flow + "/neurons_%s"%torch_model.n_neurons + "/%s"%precision_str
 
-        output_dir = "hls_output/" + "%s"%torch_model.aggr + "/%s"%torch_model.flow + "/neurons_%s"%torch_model.n_neurons + "/%s"%precision_str
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
                                    default_index_precision='ap_uint<16>',
                                    default_reuse_factor=reuse)
     hls_model = convert_from_pyg_model(torch_model,
-                                       n_edge=graph_dims['n_edge'],
-                                       n_node=graph_dims['n_node'],
-                                       edge_dim=graph_dims['edge_dim'],
-                                       node_dim=graph_dims['node_dim'],
                                        forward_dictionary=forward_dict,
                                        activate_final='sigmoid',
                                        output_dir=output_dir,
-                                       hls_config=config)
+                                       hls_config=config,
+                                       **graph_dims)
 
     hls_model.compile()
     print("Model compiled at: ", hls_model.config.get_output_dir())

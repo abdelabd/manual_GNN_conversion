@@ -106,14 +106,11 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                                    default_index_precision='ap_uint<16>', 
                                    default_reuse_factor=reuse)
     hls_model = convert_from_pyg_model(torch_model,
-                                       n_edge=graph_dims['n_edge'],
-                                       n_node=graph_dims['n_node'],
-                                       edge_dim=graph_dims['edge_dim'],
-                                       node_dim=graph_dims['node_dim'],
-                                       forward_dictionary=forward_dict, 
-                                       activate_final='sigmoid',
+                                       forward_dictionary=forward_dict,
+                                       activate_final="sigmoid",
                                        output_dir=output_dir,
-                                       hls_config=config)
+                                       hls_config=config,
+                                       **graph_dims)
 
     hls_model.compile()
     print("Model compiled at: ", hls_model.config.get_output_dir())
