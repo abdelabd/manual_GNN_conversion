@@ -1,0 +1,2 @@
+model_dict_dir: trained_models/IN_pyg_small_state_dict.pt
+trained_model_dir: trained_models
