@@ -20,7 +20,7 @@ def parse_args():
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
     add_arg('--max-nodes', type=int, default=28, help='max number of nodes')
-    add_arg('--max-edges', type=int, default=37, help='max number of edges')
+    add_arg('--max-edges', type=int, default=51, help='max number of edges')
     add_arg('--n-neurons', type=int, default=8, choices=[8, 40], help='number of neurons')
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
@@ -63,6 +63,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
                                        activate_final='sigmoid',
                                        output_dir=output_dir,
                                        hls_config=config,
+                                       fpga_part='xcvu9p-flga2104-2L-e',
                                        **graph_dims)
 
     hls_model.compile()
@@ -78,7 +79,6 @@ def main():
     with open(args.config) as f:
         config = yaml.load(f, yaml.FullLoader)
 
-    build_template = "python build_hls.py --directory '{output_dir}'"
     graph_dims = {
         "n_node": args.max_nodes,
         "n_edge": args.max_edges,
@@ -86,7 +86,7 @@ def main():
         "edge_dim": 4
     }
 
-    fp_bits = np.arange(10, 34, 2)
+    fp_bits = np.arange(6, 20, 2)
     for a in args.aggregation:
         for f in args.flow:
             for nn in args.n_neurons:
@@ -97,10 +97,7 @@ def main():
 
                 # get hls model
                 for fpb in fp_bits:
-                    if fpb<16:
-                        fpib=6
-                    else:
-                        fpib=8
+                    fpib = int(fpb/2)
                     precision = f"ap_fixed<{fpb}, {fpib}>"
                     hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=precision, reuse=args.reuse)
                     output_dir = output_dir.replace("hls_output/", "")
@@ -109,8 +106,7 @@ def main():
                     print(f"precision: {precision}")
                     print(f"output_dir: {output_dir}")
                     print("")
-                    build_command = build_template.format(output_dir=output_dir)
-                    os.system(build_command)
+                    hls_model.build(synth=True,vsynth=True)
 
 if __name__=="__main__":
     main()

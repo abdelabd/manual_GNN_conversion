@@ -105,11 +105,13 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                                    default_precision=precision,
                                    default_index_precision='ap_uint<16>', 
                                    default_reuse_factor=reuse)
+    help(convert_from_pyg_model)
     hls_model = convert_from_pyg_model(torch_model,
                                        forward_dictionary=forward_dict,
                                        activate_final="sigmoid",
                                        output_dir=output_dir,
                                        hls_config=config,
+                                       fpga_part='xcvu9p-flga2104-2L-e',
                                        **graph_dims)
 
     hls_model.compile()

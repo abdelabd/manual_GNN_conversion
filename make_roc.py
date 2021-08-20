@@ -97,13 +97,10 @@ def main():
     }
     graphs = load_graphs(graph_indir, graph_dims, args.n_graphs)
 
-    fp_bits = np.arange(10, 20, 2)
+    fp_bits = np.arange(6, 20, 2)
     precisions = []
     for fpb in fp_bits:
-        if fpb<16:
-            fpib=6
-        else: 
-            fpib=8
+        fpib = int(fpb/2)
         precision = f"ap_fixed<{fpb}, {fpib}>"
         precisions.append(precision)
 
@@ -147,7 +144,7 @@ def main():
             plt.figure()
             plt.plot(fpr_torch, tpr_torch, "r", label=f"PyTorch, AUC = {auc_torch:.1f}%", linewidth=2)
             fpr_hls, tpr_hls, auc_hls = {}, {}, {}
-            linestyles = ['dotted', 'dashed', 'dashdot', (0, (1, 10)), (0, (5, 10)), (0, (3, 10, 1, 10))]
+            linestyles = ['dotted', 'dashed', 'dashdot', (0, (1, 10)), (0, (5, 10)), (0, (3, 10, 1, 10)), (0, (3, 10, 1, 10, 1, 10))]
             for precision, linestyle in zip(precisions, linestyles):
                 fpr_hls[precision], tpr_hls[precision], _ = roc_curve(target_all, hls_pred_all[precision])
                 auc_hls[precision] = auc(fpr_hls[precision], tpr_hls[precision])*100.

@@ -6,11 +6,11 @@ To test the HLS implementation:
 ```bash
 git clone https://github.com/abdelabd/manual_GNN_conversion
 cd manual_GNN_conversion
-python test_model.py test_config.yaml --n-graphs 100 --aggregation add --flow source_to_target --precision 'ap_fixed<16,8>' --max-nodes 28 --max-edges 37 --n-neurons 8
+python test_model.py test_config.yaml --n-graphs 100 --aggregation add --flow source_to_target --precision 'ap_fixed<16,8>' --max-nodes 28 --max-edges 51 --n-neurons 8
 ```
 
 To sythesize the HLS implementation:
 ```bash
-python test_model.py test_config.yaml --n-graphs 100 --aggregation add --flow source_to_target --precision 'ap_fixed<16,8>' --max-nodes 28 --max-edges 37 --n-neurons 8 --synth
+python test_model.py test_config.yaml --n-graphs 100 --aggregation add --flow source_to_target --precision 'ap_fixed<16,8>' --max-nodes 28 --max-edges 51 --n-neurons 8 --synth
 ```
 
