@@ -24,7 +24,7 @@ def parse_args():
     add_arg('--n-neurons', type=int, default=8, choices=[8, 40], help='number of neurons')
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
-    add_arg('--reuse', type=int, default=1, help="reuse factor")
+    add_arg('--precision', type=str, default='ap_fixed<16,8>', help='fixed-point precision')
 
     args = parser.parse_args()
     if args.aggregation=='all':
@@ -48,12 +48,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
 
-    precision_str = precision.replace("<", "_")
-    precision_str = precision_str.replace(", ", "_")
-    precision_str = precision_str.replace(",", "_")
-    precision_str = precision_str.replace(">", "")
-    output_dir = "hls_output/" + f"n{graph_dims['n_node']}xe{graph_dims['n_edge']}" + "/%s"%precision_str
-
+    output_dir = "hls_output/" + f"n{graph_dims['n_node']}xe{graph_dims['n_edge']}" + "/rf%s"%reuse
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
                                    default_index_precision='ap_uint<16>',
@@ -87,7 +82,7 @@ def main():
         "edge_dim": 4
     }
 
-    fp_bits = np.arange(10, 34, 2)
+    reuse_factors = [1, 8, 16, 24, 32, 40, 48, 56, 64]
     for a in args.aggregation:
         for f in args.flow:
             for nn in args.n_neurons:
@@ -97,17 +92,10 @@ def main():
                 torch_model.load_state_dict(torch_model_dict)
 
                 # get hls model
-                for fpb in fp_bits:
-                    if fpb<16:
-                        fpib=6
-                    else:
-                        fpib=8
-                    precision = f"ap_fixed<{fpb}, {fpib}>"
-                    hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=precision, reuse=args.reuse)
+                for rf in reuse_factors:
+                    hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=rf)
                     output_dir = output_dir.replace("hls_output/", "")
-
-
-                    print(f"precision: {precision}")
+                    print(f"reuse_factor: {rf}")
                     print(f"output_dir: {output_dir}")
                     print("")
                     build_command = build_template.format(output_dir=output_dir)
@@ -115,4 +103,3 @@ def main():
 
 if __name__=="__main__":
     main()
-
