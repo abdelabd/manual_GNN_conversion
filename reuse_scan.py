@@ -1,6 +1,8 @@
 import os
 import yaml
 import argparse
+from multiprocessing import Pool
+import subprocess
 
 import numpy as np
 import pandas as pd
@@ -8,7 +10,6 @@ import torch
 
 from hls4ml.utils.config import config_from_pyg_model
 from hls4ml.converters import convert_from_pyg_model
-from hls4ml.model.hls_model import HLSModel
 from collections import OrderedDict
 
 # locals
@@ -25,6 +26,8 @@ def parse_args():
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
     add_arg('--precision', type=str, default='ap_fixed<16,8>', help='fixed-point precision')
+    add_arg('--ssh', action='store_true', help='runs the vivado-build through ssh instead of local machine (must provide ssh details in "build_hls_config.yml"')
+    add_arg('--n-jobs', type=int, default=8, help='number of jobs/scripts that can be run on the ssh in parallel')
 
     args = parser.parse_args()
     if args.aggregation=='all':
@@ -63,18 +66,38 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
 
     hls_model.compile()
     print("Model compiled at: ", hls_model.config.get_output_dir())
+    print("")
     model_config = f"aggregation: {torch_model.aggr} \nflow: {torch_model.flow} \nn_neurons: {torch_model.n_neurons} \nprecision: {precision} \ngraph_dims: {graph_dims} \nreuse_factor: {reuse}"
     with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as file:
         file.write(model_config)
 
     return hls_model, output_dir
 
+def build_command(output_dir):
+    build_template = "python build_hls.py --directory '{output_dir}'"
+    command = build_template.format(output_dir=output_dir)
+    subprocess.Popen(command, shell=True)
+
+def chunkify(list, n): #converts a list into a list-of-lists, each of size <=n
+    list_out = []
+    idx_start = 0
+    all_members_accounted = False
+    while not all_members_accounted:
+        idx_stop = min([idx_start+n, len(list)])
+        list_i = list[idx_start:idx_stop]
+        list_out.append(list_i)
+
+        if idx_stop >= len(list):
+            all_members_accounted = True
+        else:
+            idx_start += n
+    return list_out
+
 def main():
     args = parse_args()
     with open(args.config) as f:
         config = yaml.load(f, yaml.FullLoader)
 
-    build_template = "python build_hls.py --directory '{output_dir}'"
     graph_dims = {
         "n_node": args.max_nodes,
         "n_edge": args.max_edges,
@@ -82,6 +105,8 @@ def main():
         "edge_dim": 4
     }
 
+    # compile all the models, build each model locally if args.ssh==False
+    all_output_dirs = []
     reuse_factors = [1, 8, 16, 24, 32, 40, 48, 56, 64]
     for a in args.aggregation:
         for f in args.flow:
@@ -94,12 +119,19 @@ def main():
                 # get hls model
                 for rf in reuse_factors:
                     hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=rf)
-                    output_dir = output_dir.replace("hls_output/", "")
-                    print(f"reuse_factor: {rf}")
-                    print(f"output_dir: {output_dir}")
-                    print("")
-                    build_command = build_template.format(output_dir=output_dir)
-                    #os.system(build_command)
+                    all_output_dirs.append(output_dir)
+                    if not args.ssh:
+                        hls_model.build(csim=False, synth=True, vsynth=True)
+
+    return args, all_output_dirs
 
 if __name__=="__main__":
-    main()
+    args, all_output_dirs = main()
+    # if args.ssh==True, build the models remotely and in parallel through ssh (max of n_jobs at a time)
+    if args.ssh:
+        project_chunks = chunkify(all_output_dirs, args.n_jobs)
+        pool = Pool(args.n_jobs)
+        for project in project_chunks:
+            pool.map(build_command, project)
+            pool.close()
+            pool.join()
