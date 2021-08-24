@@ -24,7 +24,6 @@ def parse_vsynth_report(dir):
                 percent_util_dict[term] = line.split("|")[5]
                 lines_of_interest.append(line)
     out_dict = {k+" (%) V-Synth":v for k,v in percent_util_dict.items()}
-
     return out_dict
 
 def parse_csynth_report(dir):
@@ -73,7 +72,7 @@ def get_single_report(dir):
 def main():
     args = parse_args()
 
-    columns = ["CLB LUTs* (%) V-Synth", "CARRY8 (%) V-Synth", "DSPs (%) V-Synth", "Bonded IOB (%) V-synth",
+    columns = ["Project", "CLB LUTs* (%) V-Synth", "CARRY8 (%) V-Synth", "DSPs (%) V-Synth", "Bonded IOB (%) V-Synth",
                "Latency min (clock cycles)", "Latency max (clock cycles)", "Interval min (clock cycles)",
                "Interval max (clock cycles)", "BRAM_18K SLR (%) C-Synth", "DSP48E SLR (%) C-Synth",
                "FF SLR (%) C-Synth", "LUT SLR (%) C-Synth", "URAM SLR (%) C-Synth", "BRAM_18K (%) C-Synth",
@@ -83,6 +82,7 @@ def main():
     all_project_dirs = [i for i in os.listdir(args.dir) if (i[-3:]!=".gz" and i[-4:]!=".csv")]
     for i, project_dir in enumerate(all_project_dirs):
         out_dict = get_single_report(os.path.join(args.dir, project_dir))
+        out_dict["Project"] = project_dir
         df = df.append(out_dict, ignore_index=True)
 
     df.to_csv(args.dir+"/summary.csv", index=False)
