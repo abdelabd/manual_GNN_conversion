@@ -17,7 +17,7 @@ from utils.models.interaction_network_pyg import InteractionNetwork
 def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
-    add_arg('config', nargs='?', default='conversion_config.yaml')
+    add_arg('config', nargs='?', default='test_config.yaml')
     add_arg('--max-nodes', type=int, default=28, help='max number of nodes')
     add_arg('--max-edges', type=int, default=37, help='max number of edges')
     add_arg('--n-neurons', type=int, default=8, choices=[8, 40], help='number of neurons')
@@ -25,6 +25,7 @@ def parse_args():
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
     add_arg('--precision', type=str, default='ap_fixed<32,16>', help='precision to use')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
+    add_arg('--output-dir', type=str, default="", help='where you want to save the hls_model')
 
     args = parser.parse_args()
     if args.aggregation=='all':
@@ -94,7 +95,7 @@ def main():
                 torch_model_dict = torch.load(config['trained_model_dir'] + "//IN_pyg_small" + f"_{a}" + f"_{f}" + f"_{nn}" + "_state_dict.pt")
                 torch_model.load_state_dict(torch_model_dict)
 
-                hls_model = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=args.reuse)
+                hls_model = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=args.reuse, output_dir=args.output_dir)
                 hls_model.compile()
 
 
