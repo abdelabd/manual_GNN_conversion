@@ -24,6 +24,11 @@ def parse_vsynth_report(dir):
                 percent_util_dict[term] = line.split("|")[5]
                 lines_of_interest.append(line)
     out_dict = {k+" (%) V-Synth":v for k,v in percent_util_dict.items()}
+
+    for line in file:
+        if "Register as Flip Flop" in line:
+            FF_usage = line.split("|")[5]
+            out_dict["Register as Flip Flop (%) V-Synth"] = FF_usage
     return out_dict
 
 def parse_csynth_report(dir):
