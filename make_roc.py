@@ -98,14 +98,7 @@ def main():
     graphs = load_graphs(graph_indir, graph_dims, args.n_graphs)
 
     fp_bits = np.arange(10, 20, 2)
-    precisions = []
-    for fpb in fp_bits:
-        if fpb<16:
-            fpib=6
-        else: 
-            fpib=8
-        precision = f"ap_fixed<{fpb}, {fpib}>"
-        precisions.append(precision)
+    precisions = [f"ap_fixed<{fpb}, {int(fpb/2)}>" for fpb in fp_bits]
 
     for a in args.aggregation:
         for nn in args.n_neurons:
