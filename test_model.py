@@ -110,6 +110,7 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                                        activate_final="sigmoid",
                                        output_dir=output_dir,
                                        hls_config=config,
+                                       fpga_part='xcvu9p-flga2104-2L-e',
                                        **graph_dims)
 
     hls_model.compile()

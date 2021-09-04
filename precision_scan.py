@@ -112,7 +112,7 @@ def main():
 
     # compile all the models, build each model locally if args.ssh==False
     all_output_dirs = []
-    fp_bits = np.arange(10, 34, 2)
+    fp_bits = np.arange(6, 22, 2)
     for a in args.aggregation:
         for f in args.flow:
             for nn in args.n_neurons:
@@ -140,6 +140,7 @@ if __name__=="__main__":
         pool = Pool(args.n_jobs)
         for project in project_chunks:
             pool.map(build_command, project)
-            pool.close()
             pool.join()
+
+        pool.close()
 
