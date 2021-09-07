@@ -8,13 +8,14 @@
 //hls-fpga-machine-learning insert numbers
 #define NODE_DIM 3
 #define LAYER4_OUT_DIM 4
-#define N_NODE 1792
+#define N_NODE 28
 #define LAYER5_OUT_DIM 4
 #define LAYER6_OUT_DIM 3
 #define LAYER7_OUT_DIM 1
 #define EDGE_DIM 4
-#define N_EDGE 2368 
+#define N_EDGE 37 
 #define TWO 2
+#define RESOURCE_LIMIT false//false: Abdel's Version true: Dataflow Version
 
 //hls-fpga-machine-learning insert layer-precision
 typedef ap_fixed<16,8> model_default_t;
