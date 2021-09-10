@@ -1,0 +1,2 @@
+graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small
+graph_outdir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small_hls
