@@ -107,7 +107,7 @@ def main():
 
     # compile all the models, build each model locally if args.ssh==False
     all_output_dirs = []
-    reuse_factors = [1, 8, 16, 24, 32, 40, 48, 56, 64]
+    reuse_factors = [8, 16, 24, 32, 40, 48, 56, 64]
     for a in args.aggregation:
         for f in args.flow:
             for nn in args.n_neurons:
@@ -133,5 +133,6 @@ if __name__=="__main__":
         pool = Pool(args.n_jobs)
         for project in project_chunks:
             pool.map(build_command, project)
-            pool.close()
             pool.join()
+
+        pool.close()
