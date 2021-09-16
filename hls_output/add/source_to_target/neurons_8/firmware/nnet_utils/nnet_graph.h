@@ -36,8 +36,7 @@ namespace nnet {
     static const unsigned io_type = io_parallel;
     static const unsigned reuse_factor = 1;
     static const unsigned n_zeros = 0;
-    static activate_final = false;
-    static const bool resource_limit = false;
+
     static const bool no_aggr = false; //if no_aggr==true, then skip aggregation steps
   };
 
