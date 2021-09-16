@@ -36,8 +36,7 @@ void myproject(
         #pragma HLS ARRAY_RESHAPE variable=node_attr cyclic factor = node_dim dim=1
         #pragma HLS ARRAY_RESHAPE variable=edge_attr cyclic factor = edge_dim dim=1
         #pragma HLS ARRAY_RESHAPE variable=edge_index cyclic factor = two  dim=1
-        //#pragma HLS ARRAY_PARTITION variable=layer8_out cyclic factor = 1 dim=1
-        #pragma HLS INTERFACE ap_vld port=node_attr,edge_attr,edge_index,layer8_out
+        #pragma HLS INTERFACE ap_vld port=node_attr,edge_attr,edge_index,layer8_out 
         #pragma HLS DATAFLOW
     }
     else
@@ -46,7 +45,7 @@ void myproject(
         #pragma HLS ARRAY_RESHAPE variable=edge_attr complete dim=0
         #pragma HLS ARRAY_RESHAPE variable=edge_index complete dim=0
         #pragma HLS ARRAY_PARTITION variable=layer8_out complete dim=0
-        #pragma HLS INTERFACE ap_vld port=node_attr,edge_attr,edge_index,layer8_out
+        #pragma HLS INTERFACE ap_vld port=node_attr,edge_attr,edge_index,layer8_out 
         #pragma HLS PIPELINE 
     }
 
@@ -127,12 +126,6 @@ void myproject(
         nnet::nodeblock<input_t, layer6_t, config6>(node_attr_2, layer5_out, layer6_out, O_w0, O_b0, O_w1, O_b1, O_w2, O_b2, O_w3, O_b3); // O
         layer7_t layer7_out[N_EDGE*LAYER7_OUT_DIM];
         nnet::edgeblock<input2_t, input3_t, layer7_t, config7>(layer6_out, layer4_out_2, edge_index_4, layer8_out, R2_w0, R2_b0, R2_w1, R2_b1, R2_w2, R2_b2, R2_w3, R2_b3); // R2
-        //result_t layer7_2_out[N_EDGE*LAYER7_OUT_DIM];
-        //nnet::sigmoid<layer7_t, result_t, sigmoid_config8>(layer7_out, layer7_2_out); // final_act
-        // for(int i=0; i<37; i++){
-        //     #pragma HLS PIPELINE
-        //     layer8_out[i] =  layer7_out[i];
-        // }
     }
     else 
     {
