@@ -27,6 +27,7 @@ def parse_args():
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
     add_arg('--precision', type=str, default='ap_fixed<16,8>', help='precision to use')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
+    add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
     add_arg('--output-dir', type=str, default="", help='output directory')
     add_arg('--synth',action='store_true', help='whether to synthesize')
 
@@ -86,7 +87,8 @@ def load_graphs(graph_indir, graph_dims, n_graphs):
 
     return graphs
 
-def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40, precision='ap_fixed<16,8>', output_dir="", reuse=1):
+def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40,
+                precision='ap_fixed<16,8>', output_dir="", reuse=1, resource_limit=False):
     # get torch model
     torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
     torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
@@ -111,12 +113,13 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                                        activate_final="sigmoid",
                                        output_dir=output_dir,
                                        hls_config=config,
-                                       fpga_part='xcvu9p-flga2104-2L-e'
+                                       fpga_part='xcvu9p-flga2104-2L-e',
+                                       resource_limit=resource_limit
                                        )
 
     hls_model.compile()
     print("Model compiled at: ", hls_model.config.get_output_dir())
-    model_config = f"aggregation: {aggr} \nflow: {flow} \nn_neurons: {n_neurons} \nprecision: {precision} \ngraph_dims: {graph_dims} \nreuse_factor: {reuse}"
+    model_config = f"aggregation: {aggr} \nflow: {flow} \nn_neurons: {n_neurons} \nprecision: {precision} \ngraph_dims: {graph_dims} \nreuse_factor: {reuse} \nresource_limit: {resource_limit}"
     with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as file:
         file.write(model_config)
 
@@ -143,7 +146,10 @@ def main():
     for a in args.aggregation:
         for f in args.flow:
             for nn in args.n_neurons:
-                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a, flow=f, n_neurons=nn, precision=args.precision, output_dir=args.output_dir, reuse=args.reuse)
+                torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a,
+                                                                    flow=f, n_neurons=nn, precision=args.precision,
+                                                                    output_dir=args.output_dir, reuse=args.reuse,
+                                                                    resource_limit=args.resource_limit)
                 all_torch_error = {
                     "MAE": [],
                     "MSE": [],
