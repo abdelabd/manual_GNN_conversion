@@ -107,11 +107,12 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                                    default_reuse_factor=reuse)
     hls_model = convert_from_pyg_model(torch_model,
                                        forward_dictionary=forward_dict,
+                                       **graph_dims,
                                        activate_final="sigmoid",
                                        output_dir=output_dir,
                                        hls_config=config,
-                                       fpga_part='xcvu9p-flga2104-2L-e',
-                                       **graph_dims)
+                                       fpga_part='xcvu9p-flga2104-2L-e'
+                                       )
 
     hls_model.compile()
     print("Model compiled at: ", hls_model.config.get_output_dir())
