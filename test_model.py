@@ -106,17 +106,17 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
                                    default_index_precision='ap_uint<16>', 
-                                   default_reuse_factor=reuse)
+                                   default_reuse_factor=reuse,
+                                   resource_limit=resource_limit)
     hls_model = convert_from_pyg_model(torch_model,
                                        forward_dictionary=forward_dict,
                                        **graph_dims,
                                        activate_final="sigmoid",
                                        output_dir=output_dir,
                                        hls_config=config,
-                                       fpga_part='xcvu9p-flga2104-2L-e',
-                                       resource_limit=resource_limit
+                                       fpga_part='xcvu9p-flga2104-2L-e'
                                        )
-
+    
     hls_model.compile()
     print("Model compiled at: ", hls_model.config.get_output_dir())
     model_config = f"aggregation: {aggr} \nflow: {flow} \nn_neurons: {n_neurons} \nprecision: {precision} \ngraph_dims: {graph_dims} \nreuse_factor: {reuse} \nresource_limit: {resource_limit}"
