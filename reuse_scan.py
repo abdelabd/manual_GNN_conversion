@@ -26,6 +26,8 @@ def parse_args():
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
     add_arg('--precision', type=str, default='ap_fixed<16,8>', help='fixed-point precision')
+    add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
+    add_arg('--par-factor', type=int, default=16, help='parallelization factor')
     add_arg('--ssh', action='store_true', help='runs the vivado-build through ssh instead of local machine (must provide ssh details in "build_hls_config.yml"')
     add_arg('--n-jobs', type=int, default=8, help='number of jobs/scripts that can be run on the ssh in parallel')
 
@@ -44,14 +46,14 @@ def parse_args():
 
     return args
 
-def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
+def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, resource_limit=False, par_factor=16):
     # forward_dict: defines the order in which graph-blocks are called in the model's 'forward()' method
     forward_dict = OrderedDict()
     forward_dict["R1"] = "EdgeBlock"
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
 
-    output_dir = "hls_output/" + f"n{graph_dims['n_node']}xe{graph_dims['n_edge']}" + "/rf%s"%reuse
+    output_dir = "hls_output/reuse_scan_dataflow/" + "rf%s"%reuse
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
                                    default_index_precision='ap_uint<16>',
@@ -62,6 +64,8 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
                                        output_dir=output_dir,
                                        hls_config=config,
                                        fpga_part='xcvu9p-flga2104-2L-e',
+                                       resource_limit=resource_limit,
+                                       par_factor=par_factor,
                                        **graph_dims)
 
     hls_model.compile()
@@ -118,7 +122,8 @@ def main():
 
                 # get hls model
                 for rf in reuse_factors:
-                    hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=rf)
+                    hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=rf,
+                                                          resource_limit=args.resoruce_limit, par_factor=args.par_factor)
                     all_output_dirs.append(output_dir)
                     if not args.ssh:
                         hls_model.build(csim=False, synth=True, vsynth=True)

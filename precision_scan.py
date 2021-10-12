@@ -21,11 +21,13 @@ def parse_args():
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
     add_arg('--max-nodes', type=int, default=28, help='max number of nodes')
-    add_arg('--max-edges', type=int, default=37, help='max number of edges')
+    add_arg('--max-edges', type=int, default=51, help='max number of edges')
     add_arg('--n-neurons', type=int, default=8, choices=[8, 40], help='number of neurons')
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
+    add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
+    add_arg('--par-factor', type=int, default=16, help='parallelization factor')
     add_arg('--ssh', action='store_true', help='runs the vivado-build through ssh instead of local machine (must provide ssh details in "build_hls_config.yml"')
     add_arg('--n-jobs', type=int, default=8, help='number of jobs/scripts that can be run on the ssh in parallel')
 
@@ -44,7 +46,7 @@ def parse_args():
 
     return args
 
-def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
+def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, resource_limit=False, par_factor=16):
     # forward_dict: defines the order in which graph-blocks are called in the model's 'forward()' method
     forward_dict = OrderedDict()
     forward_dict["R1"] = "EdgeBlock"
@@ -55,7 +57,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
     precision_str = precision_str.replace(", ", "_")
     precision_str = precision_str.replace(",", "_")
     precision_str = precision_str.replace(">", "")
-    output_dir = "hls_output/" + f"n{graph_dims['n_node']}xe{graph_dims['n_edge']}" + "/%s"%precision_str
+    output_dir = "hls_output/precision_scan_dataflow/" + "%s"%precision_str
 
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
@@ -67,6 +69,8 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1):
                                        output_dir=output_dir,
                                        hls_config=config,
                                        fpga_part='xcvu9p-flga2104-2L-e',
+                                       resource_limit=resource_limit,
+                                       par_factor=par_factor,
                                        **graph_dims)
 
     hls_model.compile()
@@ -125,7 +129,8 @@ def main():
                 for fpb in fp_bits:
                     fpib = int(fpb/2)
                     precision = f"ap_fixed<{fpb}, {fpib}>"
-                    hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=precision, reuse=args.reuse)
+                    hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=precision, reuse=args.reuse,
+                                                          resource_limit=args.resource_limit, par_factor=args.par_factor)
                     all_output_dirs.append(output_dir)
                     if not args.ssh:
                         hls_model.build(csim=False, synth=True, vsynth=True)
