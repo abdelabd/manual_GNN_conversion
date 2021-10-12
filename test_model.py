@@ -28,6 +28,7 @@ def parse_args():
     add_arg('--precision', type=str, default='ap_fixed<16,8>', help='precision to use')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
     add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
+    add_arg('--par-factor', type=int, default=16, help='parallelization factor')
     add_arg('--output-dir', type=str, default="", help='output directory')
     add_arg('--synth',action='store_true', help='whether to synthesize')
 
@@ -88,7 +89,7 @@ def load_graphs(graph_indir, graph_dims, n_graphs):
     return graphs
 
 def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_target', n_neurons=40,
-                precision='ap_fixed<16,8>', output_dir="", reuse=1, resource_limit=False):
+                precision='ap_fixed<16,8>', output_dir="", reuse=1, resource_limit=False, par_factor=16):
     # get torch model
     torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=n_neurons)
     torch_model_dict = torch.load(trained_model_dir + "//IN_pyg_small" + f"_{aggr}" + f"_{flow}" + f"_{n_neurons}"+ "_state_dict.pt")
@@ -103,6 +104,7 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
     # get hls model
     if output_dir == "":
         output_dir = "hls_output/%s"%aggr + "/%s"%flow + "/neurons_%s"%n_neurons
+
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
                                    default_index_precision='ap_uint<16>', 
@@ -114,7 +116,8 @@ def load_models(trained_model_dir, graph_dims, aggr='add', flow='source_to_targe
                                        output_dir=output_dir,
                                        hls_config=config,
                                        fpga_part='xcvu9p-flga2104-2L-e',
-                                       resource_limit=resource_limit
+                                       resource_limit=resource_limit,
+                                       par_factor=par_factor
                                        )
 
     hls_model.compile()
@@ -149,7 +152,8 @@ def main():
                 torch_model, hls_model, torch_wrapper = load_models(config['trained_model_dir'], graph_dims, aggr=a,
                                                                     flow=f, n_neurons=nn, precision=args.precision,
                                                                     output_dir=args.output_dir, reuse=args.reuse,
-                                                                    resource_limit=args.resource_limit)
+                                                                    resource_limit=args.resource_limit,
+                                                                    par_factor=args.par_factor)
                 all_torch_error = {
                     "MAE": [],
                     "MSE": [],
