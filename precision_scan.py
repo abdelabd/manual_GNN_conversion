@@ -57,7 +57,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
     precision_str = precision_str.replace(", ", "_")
     precision_str = precision_str.replace(",", "_")
     precision_str = precision_str.replace(">", "")
-    output_dir = "hls_output/precision_scan_dataflow/" + "%s"%precision_str
+    output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/%s"%precision_str
 
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
@@ -85,7 +85,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
 def build_command(output_dir):
     build_template = "python build_hls.py --directory '{output_dir}'"
     command = build_template.format(output_dir=output_dir)
-    subprocess.Popen(command, shell=True)
+    os.system(command)
 
 def chunkify(list, n): #converts a list into a list-of-lists, each of size <=n
     list_out = []
@@ -142,10 +142,8 @@ if __name__=="__main__":
     # if args.ssh==True, build the models remotely and in parallel through ssh (max of n_jobs at a time)
     if args.ssh:
         project_chunks = chunkify(all_output_dirs, args.n_jobs)
-        pool = Pool(args.n_jobs)
-        for project in project_chunks:
-            pool.map(build_command, project)
+        for chunk in project_chunks:
+            pool = Pool(args.n_jobs)
+            pool.map(build_command, chunk)
+            pool.close()
             pool.join()
-
-        pool.close()
-
