@@ -21,7 +21,7 @@ def parse_args():
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
     add_arg('--max-nodes', type=int, default=28, help='max number of nodes')
-    add_arg('--max-edges', type=int, default=37, help='max number of edges')
+    add_arg('--max-edges', type=int, default=51, help='max number of edges')
     add_arg('--n-neurons', type=int, default=8, choices=[8, 40], help='number of neurons')
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
