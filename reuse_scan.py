@@ -123,7 +123,7 @@ def main():
                 # get hls model
                 for rf in reuse_factors:
                     hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=rf,
-                                                          resource_limit=args.resoruce_limit, par_factor=args.par_factor)
+                                                          resource_limit=args.resource_limit, par_factor=args.par_factor)
                     all_output_dirs.append(output_dir)
                     if not args.ssh:
                         hls_model.build(csim=False, synth=True, vsynth=True)
