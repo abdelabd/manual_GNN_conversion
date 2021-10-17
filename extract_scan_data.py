@@ -15,7 +15,7 @@ def parse_vsynth_report(dir):
         file=f.read()
     file = file.split("\n")
 
-    terms_of_interest = ["CLB LUTs*", "CARRY8", "DSPs", "Bonded IOB"]
+    terms_of_interest = ["CLB LUTs*", "CARRY8", "DSPs", "Bonded IOB", "RAMB18"]
     percent_util_dict = {i: None for i in terms_of_interest}
     lines_of_interest = []
     for line in file:
@@ -77,7 +77,8 @@ def get_single_report(dir):
 def main():
     args = parse_args()
 
-    columns = ["Project", "CLB LUTs* (%) V-Synth", "CARRY8 (%) V-Synth", "DSPs (%) V-Synth", "Bonded IOB (%) V-Synth",
+    columns = ["Project", "CLB LUTs* (%) V-Synth", "CARRY8 (%) V-Synth", "DSPs (%) V-Synth", "Bonded IOB (%) V-Synth", 
+               "RAM18 (%) V-Synth", 
                "Latency min (clock cycles)", "Latency max (clock cycles)", "Interval min (clock cycles)",
                "Interval max (clock cycles)", "BRAM_18K SLR (%) C-Synth", "DSP48E SLR (%) C-Synth",
                "FF SLR (%) C-Synth", "LUT SLR (%) C-Synth", "URAM SLR (%) C-Synth", "BRAM_18K (%) C-Synth",
