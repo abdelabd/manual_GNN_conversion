@@ -37,7 +37,7 @@ def main():
     df_reuse["Project"] = [int(i.replace("rf", "")) for i in df_reuse["Project"]]
     df_reuse.sort_values("Project", ascending=True, inplace=True)
     df_reuse.replace('    ~0   ', 0, inplace=True)
-    
+
     project_names = list(df["Project"])
     var_names = list(df.columns)
     del var_names[0]
