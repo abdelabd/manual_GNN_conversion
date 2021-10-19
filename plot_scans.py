@@ -12,7 +12,7 @@ def parse_args():
     add_arg('--dir', type=str, default='hls_output/n28xe51_manual_fpib')
     add_arg('--max-nodes', type=int, default=28)
     add_arg('--max-edges', type=int, default=51)
-    add_arg('--reuse', type=int, default=8)
+    add_arg('--reuse', type=int, default=1)
     add_arg('--precision', type=str, default="ap_fixed<16,8>")
     add_arg('--show-plots', action='store_true')
     return parser.parse_args()
