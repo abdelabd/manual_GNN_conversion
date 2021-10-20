@@ -72,7 +72,7 @@ def parse_args():
         args.aggregation = [args.aggregation]
 
     if args.n_neurons == "all":
-        args.n_neurons = [8,40]
+        args.n_neurons = [8, 40]
     else: 
         args.n_neurons = [int(args.n_neurons)]
 
@@ -88,7 +88,7 @@ def main():
         config = yaml.load(file, yaml.FullLoader)
 
     # dataset
-    graph_indir = 'trackml_data/processed_plus_pyg_small'
+    graph_indir = config['graph_indir']
     graph_dims = {
         "n_node": args.max_nodes,
         "n_edge": args.max_edges,
@@ -97,7 +97,7 @@ def main():
     }
     graphs = load_graphs(graph_indir, graph_dims, args.n_graphs)
 
-    fp_bits = np.arange(10, 20, 2)
+    fp_bits = np.arange(6, 22, 2)
     precisions = [f"ap_fixed<{fpb}, {int(fpb/2)}>" for fpb in fp_bits]
 
     for a in args.aggregation:
@@ -140,19 +140,22 @@ def main():
             plt.figure()
             plt.plot(fpr_torch, tpr_torch, "r", label=f"PyTorch, AUC = {auc_torch:.1f}%", linewidth=2)
             fpr_hls, tpr_hls, auc_hls = {}, {}, {}
-            linestyles = ['dotted', 'dashed', 'dashdot', (0, (1, 10)), (0, (5, 10)), (0, (3, 10, 1, 10))]
+            linestyles = ['dotted', 'dashed', 'dashdot', (0, (1, 10)), (0, (5, 10)), (0, (3, 10, 1, 10)), (0, (3, 10, 1, 10, 1, 10)), (0, (3, 1, 1, 1, 1, 1))]
             for precision, linestyle in zip(precisions, linestyles):
                 fpr_hls[precision], tpr_hls[precision], _ = roc_curve(target_all, hls_pred_all[precision])
                 auc_hls[precision] = auc(fpr_hls[precision], tpr_hls[precision])*100.
                 precision_label = precision.replace('ap_fixed','')
                 plt.plot(fpr_hls[precision], tpr_hls[precision], label=f'{precision_label}, AUC = {auc_hls[precision]:.1f}%', linestyle=linestyle, linewidth=2)
             plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges\n{a} aggregation, {nn} neurons")
-            plt.semilogx()
             plt.tight_layout()
             plt.xlabel('False positive rate')
             plt.ylabel('True positive rate')
             plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/ROC.png")
             plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/ROC.pdf")
+            plt.semilogx()
+            plt.tight_layout()
+            plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/ROC_logx.png")
+            plt.savefig(f"numbers_for_paper/{a}/{torch_model.flow}/neurons_{nn}/ROC_logx.pdf")
             plt.close()
 
             plt.figure()
