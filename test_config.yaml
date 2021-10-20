@@ -1,3 +1,3 @@
-graph_indir: trackml_data/processed_plus_pyg_small
+graph_indir: trackml_data/geometric_2GeV_phi0006_z15000_train_2-5
 model_dict_dir: trained_models/IN_pyg_small_state_dict.pt
 trained_model_dir: trained_models

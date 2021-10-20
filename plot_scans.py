@@ -10,6 +10,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
     add_arg('--dir', type=str, default='hls_output/n28xe51_manual_fpib')
+    add_arg('--max-nodes', type=int, default=28)
+    add_arg('--max-edges', type=int, default=51)
+    add_arg('--reuse', type=int, default=1)
+    add_arg('--precision', type=str, default="ap_fixed<16,8>")
     add_arg('--show-plots', action='store_true')
     return parser.parse_args()
 
@@ -51,7 +55,7 @@ def main():
                            'FF (%) C-Synth': 'FF', 
                            'LUT (%) C-Synth': 'LUT'}
     
-    vsynth_vars = ['CLB LUTs* (%) V-Synth', 'DSPs (%) V-Synth', 'FF (%) V-Synth'] # to be added: 'RAMB18 (%) V-Synth'
+    vsynth_vars = ['CLB LUTs* (%) V-Synth', 'DSPs (%) V-Synth', 'FF (%) V-Synth', 'RAMB18 (%) V-Synth']
     
     vsynth_legend_names = {'RAMB18 (%) V-Synth': 'BRAM',
                            'DSPs (%) V-Synth': 'DSP', 
@@ -62,7 +66,7 @@ def main():
         plt.plot(df_precision["fpb"], df_precision[vname].astype(int), label=csynth_legend_names[vname],  ls='-', marker='o', lw=2)
     plt.xlabel("Total bits")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title="28 nodes, 51 edges, C synth.")
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\nRF = {args.reuse}")
     plt.savefig(args.dir+"/scan_plots/precision_scan_resource_csynth.pdf")
     plt.savefig(args.dir+"/scan_plots/precision_scan_resource_csynth.png")
     if args.show_plots:
@@ -74,7 +78,7 @@ def main():
         plt.plot(df_precision["fpb"], df_precision[vname].astype(int), label=vsynth_legend_names[vname],  ls='-', marker='o', lw=2)
     plt.xlabel("Total bits")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title="28 nodes, 51 edges, logic synth.")
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, logic synth.\nRF = {args.reuse}")
     plt.savefig(args.dir+"/scan_plots/precision_scan_resource_vsynth.pdf")
     plt.savefig(args.dir+"/scan_plots/precision_scan_resource_vsynth.png")
     if args.show_plots:
@@ -86,7 +90,7 @@ def main():
     plt.plot(df_precision["fpb"], df_precision["II (clock cycles)"], label="II",  ls='-', marker='o', lw=2)
     plt.xlabel("Total bits")
     plt.ylabel("Clock cycles")
-    plt.legend(title="28 nodes, 51 edges, C synth.")
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\nRF = {args.reuse}")
     plt.savefig(args.dir+"/scan_plots/precision_scan_time_csynth.pdf")
     plt.savefig(args.dir+"/scan_plots/precision_scan_time_csynth.png")
     if args.show_plots:
@@ -98,7 +102,7 @@ def main():
         plt.plot(df_reuse["Project"], df_reuse[vname].astype(int), label=csynth_legend_names[vname], ls='-', marker='o', lw=2)
     plt.xlabel("Reuse factor")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title="28 nodes, 51 edges, C synth.")
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\n{args.precision}")
     plt.savefig(args.dir+"/scan_plots/reuse_factor_scan_resource_csynth.pdf")
     plt.savefig(args.dir+"/scan_plots/reuse_factor_scan_resource_csynth.png")
     if args.show_plots:
@@ -110,7 +114,7 @@ def main():
         plt.plot(df_reuse["Project"], df_reuse[vname].astype(int), label=vsynth_legend_names[vname], ls='-', marker='o', lw=2)
     plt.xlabel("Reuse factor")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title="28 nodes, 51 edges, logic synth.")
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, logic synth.\n{args.precision}")
     plt.savefig(args.dir+"/scan_plots/reuse_factor_scan_resource_vsynth.pdf")
     plt.savefig(args.dir+"/scan_plots/reuse_factor_scan_resource_vsynth.png")
     if args.show_plots:
@@ -122,7 +126,7 @@ def main():
     plt.plot(df_reuse["Project"], df_reuse["II (clock cycles)"], label="II",  ls='-', marker='o', lw=2)
     plt.xlabel("Reuse factor")
     plt.ylabel("Clock cycles")
-    plt.legend(title="28 nodes, 51 edges, C synth.")
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\n{args.precision}")
     plt.savefig(args.dir+"/scan_plots/reuse_factor_scan_time_csynth.pdf")
     plt.savefig(args.dir+"/scan_plots/reuse_factor_scan_time_csynth.png")
     if args.show_plots:
