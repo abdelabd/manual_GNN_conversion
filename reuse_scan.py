@@ -25,7 +25,7 @@ def parse_args():
     add_arg('--n-neurons', type=int, default=8, choices=[8, 40], help='number of neurons')
     add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
     add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
-    add_arg('--precision', type=str, default='ap_fixed<16,8>', help='fixed-point precision')
+    add_arg('--precision', type=str, default='ap_fixed<14,7>', help='fixed-point precision')
     add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
     add_arg('--par-factor', type=int, default=16, help='parallelization factor')
     add_arg('--ssh', action='store_true', help='runs the vivado-build through ssh instead of local machine (must provide ssh details in "build_hls_config.yml"')
@@ -53,7 +53,11 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
     forward_dict["O"] = "NodeBlock"
     forward_dict["R2"] = "EdgeBlock"
 
-    output_dir = output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/rf%s"%reuse
+    if resource_limit:
+        output_dir = output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/rf%s"%reuse
+    else:
+        output_dir = output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}/rf%s" % reuse
+
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
                                    default_index_precision='ap_uint<16>',

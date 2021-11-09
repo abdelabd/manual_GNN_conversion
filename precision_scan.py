@@ -57,7 +57,10 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
     precision_str = precision_str.replace(", ", "_")
     precision_str = precision_str.replace(",", "_")
     precision_str = precision_str.replace(">", "")
-    output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/%s"%precision_str
+    if resource_limit:
+        output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/%s"%precision_str
+    else:
+        output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}/%s" % precision_str
 
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
