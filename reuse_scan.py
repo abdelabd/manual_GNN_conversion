@@ -56,7 +56,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
     if resource_limit:
         output_dir = output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/rf%s"%reuse
     else:
-        output_dir = output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}/rf%s" % reuse
+        output_dir = output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_pipeline/rf%s" % reuse
 
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
@@ -115,7 +115,7 @@ def main():
 
     # compile all the models, build each model locally if args.ssh==False
     all_output_dirs = []
-    reuse_factors = [8, 16, 24, 32, 40, 48, 56, 64]
+    reuse_factors = [8, 16, 24, 32, 40]
     for a in args.aggregation:
         for f in args.flow:
             for nn in args.n_neurons:

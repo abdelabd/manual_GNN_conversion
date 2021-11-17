@@ -44,7 +44,7 @@ def parse_csynth_report(dir):
 
     for i, line in enumerate(file):
         if not latency_found:
-            if ("Latency   |  Interval" in line) or ("Latency  |  Interval" in line):
+            if ("Latency   |  Interval" in line) or ("Latency  |  Interval" in line) or ("Latency   |   Interval" in line):
                 line_of_interest = file[i+3].split("|")
                 out_dict["Latency min (clock cycles)"] = line_of_interest[1]
                 out_dict["Latency max (clock cycles)"] = line_of_interest[2]

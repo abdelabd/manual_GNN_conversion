@@ -7,7 +7,6 @@ import mplhep as hep
 
 plt.style.use(hep.style.ROOT)
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
