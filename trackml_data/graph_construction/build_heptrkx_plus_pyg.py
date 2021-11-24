@@ -1,4 +1,5 @@
 """
+Original version: https://github.com/GageDeZoort/interaction_network_paper/tree/pytorch_geometric/graph_construction
 Data preparation script for GNN tracking.
 
 This script processes the TrackML dataset and produces graph data on disk.
