@@ -1,0 +1,6 @@
+graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small_test
+model: 
+  state_dict: ssh_training/IN_pyg_small_add_source_to_target_8_state_dict.pt
+  aggr: add
+  flow: source_to_target
+  n_neurons: 8

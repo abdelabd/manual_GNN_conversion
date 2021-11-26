@@ -18,7 +18,7 @@ from utils.data.fix_graph_size import fix_graph_size
 def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
-    add_arg('config', nargs='?', default='test_pipeline_benchmark.yaml')
+    add_arg('config', nargs='?', default='test_config.yaml')
     add_arg('--max-nodes', type=int, default=112, help='max number of nodes')
     add_arg('--max-edges', type=int, default=204, help='max number of edges')
     add_arg('--n-graphs', type=int, default=100)
@@ -218,7 +218,7 @@ def main():
             wrapper_pred = np.reshape(wrapper_pred[:target.shape[0]], newshape=(target.shape[0],)) #drop dummy edges
             wrapper_MAE = mean_absolute_error(torch_pred, wrapper_pred)
 
-    print(f"With aggregation={torch_model.aggr}, flow={torch_model.flow}, n_neurons={config['model']['n_neurons']}")
+    print(f"With aggregation={torch_model.aggr}, flow={torch_model.flow}, n_neurons={torch_model.n_neurons}")
     print(f"     single-graph wrapper-->torch MAE: {wrapper_MAE}")
     print("")
     for err_type in ["MAE", "MSE", "RMSE"]:#, "Accuracy", "f1"]:#, "MCE"]:
