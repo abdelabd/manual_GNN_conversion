@@ -1,3 +1,3 @@
 ssh_name: abdelabd@prp-gpu-1.t2.ucsd.edu
-ssh_top_dir: /scratch/data/abdelabd
+ssh_top_dir: /xilinx/scratch/interaction_network_scans
 remote_vivado_source: source /scratch/data/jduarte/setup_2019_1.sh

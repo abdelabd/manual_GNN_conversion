@@ -12,7 +12,7 @@ if __name__=="__main__":
     n_edges = []
     n_nodes = []
 
-    graph_indir = 'trackml_data/processed_plus_pyg_small'
+    graph_indir = '/home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small_train'
 
     graph_files = np.array(os.listdir(graph_indir))
     graph_files = np.array([os.path.join(graph_indir, graph_file)
