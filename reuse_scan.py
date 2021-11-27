@@ -20,31 +20,21 @@ def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
+
+    # graph-size parameters
     add_arg('--max-nodes', type=int, default=28, help='max number of nodes')
     add_arg('--max-edges', type=int, default=51, help='max number of edges')
-    add_arg('--n-neurons', type=int, default=8, choices=[8, 40], help='number of neurons')
-    add_arg('--aggregation', type=str, default='add', choices =['add', 'mean', 'max', 'all'], help='[add, mean, max, all]')
-    add_arg('--flow', type=str, default='source_to_target', choices = ['source_to_target', 'target_to_source', 'all'], help='[source_to_target, target_to_source, all]')
-    add_arg('--precision', type=str, default='ap_fixed<14,7>', help='fixed-point precision')
+
+    # hardware parameters
+    add_arg('--precision', type=str, default='ap_fixed<14,7>', help='precision to use')
     add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
     add_arg('--par-factor', type=int, default=16, help='parallelization factor')
+
+    # build-machine parameters
     add_arg('--ssh', action='store_true', help='runs the vivado-build through ssh instead of local machine (must provide ssh details in "build_hls_config.yml"')
     add_arg('--n-jobs', type=int, default=8, help='number of jobs/scripts that can be run on the ssh in parallel')
 
-    args = parser.parse_args()
-    if args.aggregation=='all':
-        args.aggregation = ['add', 'mean', 'max']
-    else: args.aggregation = [args.aggregation]
-
-    if args.flow == 'all':
-        args.flow = ['source_to_target', 'target_to_source']
-    else: args.flow = [args.flow]
-
-    if args.n_neurons == 'all':
-        args.n_neurons = [8,40]
-    else: args.n_neurons = [args.n_neurons]
-
-    return args
+    return parser.parse_args()
 
 def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, resource_limit=False, par_factor=16):
     # forward_dict: defines the order in which graph-blocks are called in the model's 'forward()' method
@@ -102,10 +92,16 @@ def chunkify(list, n): #converts a list into a list-of-lists, each of size <=n
     return list_out
 
 def main():
+    # user-arguments
     args = parse_args()
     with open(args.config) as f:
         config = yaml.load(f, yaml.FullLoader)
 
+    # torch-model parameters
+    model_config = config['model']
+    aggr, flow, hidden_size = model_config['aggr'], model_config['flow'], model_config['n_neurons']
+
+    # graph-size parameters
     graph_dims = {
         "n_node": args.max_nodes,
         "n_edge": args.max_edges,
@@ -113,24 +109,24 @@ def main():
         "edge_dim": 4
     }
 
-    # compile all the models, build each model locally if args.ssh==False
+    # get torch model
+    torch_model_dict = model_config['state_dict']
+    try:
+        torch_model_dict = torch.load(torch_model_dict)
+    except RuntimeError:
+        torch_model_dict = torch.load(torch_model_dict, map_location=torch.device('cpu'))
+    torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=hidden_size)
+    torch_model.load_state_dict(torch_model_dict)
+
+    # compile all the HLS models, build each model locally if args.ssh==False
     all_output_dirs = []
     reuse_factors = [8, 16, 24, 32, 40]
-    for a in args.aggregation:
-        for f in args.flow:
-            for nn in args.n_neurons:
-                # get torch model
-                torch_model = InteractionNetwork(aggr=a, flow=f, hidden_size=nn)
-                torch_model_dict = torch.load(config['trained_model_dir'] + "//IN_pyg_small" + f"_{a}" + f"_{f}" + f"_{nn}" + "_state_dict.pt")
-                torch_model.load_state_dict(torch_model_dict)
-
-                # get hls model
-                for rf in reuse_factors:
-                    hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=rf,
+    for rf in reuse_factors:
+        hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=args.precision, reuse=rf,
                                                           resource_limit=args.resource_limit, par_factor=args.par_factor)
-                    all_output_dirs.append(output_dir)
-                    if not args.ssh:
-                        hls_model.build(csim=False, synth=True, vsynth=True)
+        all_output_dirs.append(output_dir)
+        if not args.ssh:
+            hls_model.build(csim=False, synth=True, vsynth=True)
 
     return args, all_output_dirs
 
