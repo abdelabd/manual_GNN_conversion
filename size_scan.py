@@ -110,7 +110,8 @@ def main():
     # compile all the HLS-models, build each model locally if args.ssh==False
     all_output_dirs = []
     pipeline_nodes = [7, 14, 28]
-    dataflow_nodes = pipeline_nodes + [56, 112, 224, 448]
+    #dataflow_nodes = pipeline_nodes + [56, 112, 224, 448]
+    dataflow_nodes = [28, 56, 112, 224, 448]
 
     later = """
     for n_node in pipeline_nodes:
