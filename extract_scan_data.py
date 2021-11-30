@@ -117,7 +117,7 @@ def main():
                "DSP48E (%) C-Synth", "FF (%) C-Synth", "LUT (%) C-Synth", "URAM (%) C-Synth"]
     df = pd.DataFrame(columns=columns)
 
-    all_project_dirs = [i for i in os.listdir(args.dir) if (i[-3:]!=".gz" and i[-4:]!=".csv")]
+    all_project_dirs = [i for i in os.listdir(args.dir) if (i[-3:]!=".gz" and i[-4:]!=".csv" and i!='scan_plots' and i[-4:]!='.rpt')]
     for i, project_dir in enumerate(all_project_dirs):
         out_dict = get_single_report(os.path.join(args.dir, project_dir))
         out_dict["Project"] = project_dir

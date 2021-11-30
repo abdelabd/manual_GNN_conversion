@@ -73,7 +73,6 @@ def main():
     n_neurons = config['model']['n_neurons']
     top_dir = config['output_dir']
     os.makedirs(top_dir, exist_ok=True)
-    #os.makedirs(f'numbers_for_paper/{a}/source_to_target/neurons_{nn}/', exist_ok=True)
 
     # dataset
     graph_indir = config['graph_indir']
@@ -85,7 +84,7 @@ def main():
     }
     graphs = load_graphs(graph_indir, graph_dims, args.n_graphs)
 
-    fp_bits = np.arange(10, 20, 2)
+    fp_bits = np.arange(6, 20, 2)
     precisions = [f"ap_fixed<{fpb}, {int(fpb/2)}>" for fpb in fp_bits]
 
     # load torch model, predict and get ROC
@@ -126,30 +125,32 @@ def main():
     fpr_torch, tpr_torch, _ = roc_curve(target_all, torch_pred_all)
     auc_torch = auc(fpr_torch, tpr_torch)*100.
     plt.figure()
-    plt.plot(fpr_torch, tpr_torch, "r", label=f"PyTorch, AUC = {auc_torch:.1f}%", linewidth=2)
+    plt.plot(fpr_torch, tpr_torch, "r", label=f"PyG, AUC = {auc_torch:.1f}%", lw=4)
     fpr_hls, tpr_hls, auc_hls = {}, {}, {}
-    linestyles = ['dotted', 'dashed', 'dashdot', (0, (1, 10)), (0, (5, 10)), (0, (3, 10, 1, 10))]
+    linestyles = ['dotted', 'dashed', 'dashdot', (0, (1, 10)), (0, (5, 10)), (0, (3, 10, 1, 10)), (0, (3, 10, 1, 10, 1, 10)), (0, (3, 1, 1, 1, 1, 1))]            
     for precision, linestyle in zip(precisions, linestyles):
         fpr_hls[precision], tpr_hls[precision], _ = roc_curve(target_all, hls_pred_all[precision])
         auc_hls[precision] = auc(fpr_hls[precision], tpr_hls[precision])*100.
         precision_label = precision.replace('ap_fixed','')
-        plt.plot(fpr_hls[precision], tpr_hls[precision], label=f'{precision_label}, AUC = {auc_hls[precision]:.1f}%', linestyle=linestyle, linewidth=2)
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges\n{aggr} aggregation, {n_neurons} neurons")
-    plt.semilogx()
+        plt.plot(fpr_hls[precision], tpr_hls[precision], label=f'{precision_label}, AUC = {auc_hls[precision]:.1f}%', linestyle=linestyle, lw=4)
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges\n{config['phi_sections']} $\phi$ sectors, {config['eta_sections']} $\eta$ sectors")
     plt.tight_layout()
     plt.xlabel('False positive rate')
     plt.ylabel('True positive rate')
     plt.savefig(os.path.join(top_dir,"ROC.png"))
     plt.savefig(os.path.join(top_dir,"ROC.pdf"))
+    plt.semilogx()
+    plt.tight_layout()
+    plt.savefig(os.path.join(top_dir,"ROC_logx.png"))
+    plt.savefig(os.path.join(top_dir,"ROC_logx.pdf"))
     plt.close()
 
     plt.figure()
-    plt.plot(fp_bits, [auc_hls[precision] for precision in precisions], label='hls4ml', linewidth=2, marker='o')
-    plt.plot(fp_bits, [auc_torch for fp_bit in fp_bits], label='PyTorch (expected)',linestyle='--', color='gray', linewidth=2)
-
+    plt.plot(fp_bits, [auc_hls[precision] for precision in precisions], label='hls4ml', lw=4, ms=10, marker='o')
+    plt.plot(fp_bits, [auc_torch for fp_bit in fp_bits], label='PyG (expected)',linestyle='--', color='gray', lw=4, ms=10)
     plt.xlabel('Total bits')
     plt.ylabel('AUC [%]')
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges\n{aggr} aggregation, {n_neurons} neurons")
+    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges\n{config['phi_sections']} $\phi$ sectors, {config['eta_sections']} $\eta$ sectors")
     plt.tight_layout()
     plt.savefig(os.path.join(top_dir,"AUC.png"))
     plt.savefig(os.path.join(top_dir,"AUC.pdf"))

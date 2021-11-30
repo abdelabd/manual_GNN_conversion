@@ -47,6 +47,9 @@ def main():
     var_names = list(df.columns)
     del var_names[0]
 
+    display = {}
+    display['pipeline'] = 'Throughput-optimized'
+    display['dataflow'] = 'Resource-optimized'
     # plot each paradigm separately
     for paradigm in ["pipeline", "dataflow"]:
 
@@ -71,10 +74,10 @@ def main():
         plt.figure()
         for vname in csynth_vars:
             plt.plot(df_paradigm["n_nodes"], df_paradigm[vname].astype(int), label=csynth_legend_names[vname], ls='-',
-                     marker='o', lw=2)
+                     marker='o', lw=4, ms=10)
         plt.xlabel("Number of nodes")
         plt.ylabel("Resource usage [%]")
-        plt.legend(title=f"{paradigm}, C synth.\n Precision = {args.precision}\n RF = {args.reuse}")
+        plt.legend(title=f"{display[paradigm]}, C synth.\n{args.precision}\nRF = {args.reuse}")
         plt.savefig(args.dir + f"/scan_plots/{paradigm}_resource_csynth.pdf")
         plt.savefig(args.dir + f"/scan_plots/{paradigm}_resource_csynth.png")
         if args.show_plots:
@@ -85,10 +88,10 @@ def main():
         plt.figure()
         for vname in vsynth_vars:
             plt.plot(df_paradigm["n_nodes"], df_paradigm[vname].astype(int), label=vsynth_legend_names[vname], ls='-',
-                     marker='o', lw=2)
+                     marker='o', lw=4, ms=10)
         plt.xlabel("Number of nodes")
         plt.ylabel("Resource usage [%]")
-        plt.legend(title=f"{paradigm}, logic synth.\n Precision = {args.precision}\n RF = {args.reuse}")
+        plt.legend(title=f"{display[paradigm]}, logic synth.\n{args.precision}\nRF = {args.reuse}")
         plt.savefig(args.dir + f"/scan_plots/{paradigm}_resource_vsynth.pdf")
         plt.savefig(args.dir + f"/scan_plots/{paradigm}_resource_vsynth.png")
         if args.show_plots:
@@ -97,11 +100,11 @@ def main():
 
         # plot csynth latency/II
         plt.figure()
-        plt.plot(df_paradigm["n_nodes"], df_paradigm["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=2)
-        plt.plot(df_paradigm["n_nodes"], df_paradigm["II (clock cycles)"], label="II", ls='-', marker='o', lw=2)
+        plt.plot(df_paradigm["n_nodes"], df_paradigm["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=4, ms=10)
+        plt.plot(df_paradigm["n_nodes"], df_paradigm["II (clock cycles)"], label="II", ls='-', marker='o', lw=4, ms=10)
         plt.xlabel("Number of nodes")
         plt.ylabel("Clock cycles")
-        plt.legend(title=f"{paradigm}, C synth.\n Precision = {args.precision}\n RF = {args.reuse}")
+        plt.legend(title=f"{display[paradigm]}, C synth.\n{args.precision}\nRF = {args.reuse}")
         plt.savefig(args.dir + f"/scan_plots/{paradigm}_time_csynth.pdf")
         plt.savefig(args.dir + f"/scan_plots/{paradigm}_time_csynth.png")
         if args.show_plots:

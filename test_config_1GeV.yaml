@@ -1,0 +1,9 @@
+graph_indir: trackml_data/geometric_1GeV_phi0007_z350_train_2
+model: 
+  state_dict: trained_models/IN_pyg_large_add_source_to_target_8_state_dict.pt
+  aggr: add
+  flow: source_to_target
+  n_neurons: 8
+phi_sections: 8
+eta_sections: 8
+output_dir: numbers_for_paper/pt_1GeV/add/source_to_target/neurons_8

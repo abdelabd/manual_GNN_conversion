@@ -1,6 +1,10 @@
-graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small_test
+graph_indir: trackml_data/geometric_2GeV_phi0006_z15000_train_2-5
 model: 
   state_dict: trained_models/IN_pyg_small_add_source_to_target_8_state_dict.pt
   aggr: add
   flow: source_to_target
   n_neurons: 8
+phi_sections: 8
+eta_sections: 2
+output_dir: numbers_for_paper/pt_2GeV/add/source_to_target/neurons_8
+
