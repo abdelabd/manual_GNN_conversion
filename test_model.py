@@ -108,7 +108,7 @@ def load_models(model_config, graph_dims,
                                        activate_final="sigmoid",
                                        output_dir=output_dir,
                                        hls_config=config,
-                                       fpga_part='xcvu9p-flga2104-2L-e',
+                                       part='xcvu9p-flga2104-2L-e',
                                        resource_limit=resource_limit,
                                        par_factor=par_factor
                                        )
