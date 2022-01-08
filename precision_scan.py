@@ -23,7 +23,7 @@ def parse_args():
 
     # graph-size parameters
     add_arg('--max-nodes', type=int, default=28, help='max number of nodes')
-    add_arg('--max-edges', type=int, default=51, help='max number of edges')
+    add_arg('--max-edges', type=int, default=56, help='max number of edges')
 
     # hardware parameters
     add_arg('--reuse', type=int, default=1, help="reuse factor")
@@ -34,9 +34,12 @@ def parse_args():
     add_arg('--ssh', action='store_true', help='runs the vivado-build through ssh instead of local machine (must provide ssh details in "build_hls_config.yml"')
     add_arg('--n-jobs', type=int, default=8, help='number of jobs/scripts that can be run on the ssh in parallel')
 
+    add_arg('--output-dir', type=str, default='')
+
     return parser.parse_args()
 
-def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, resource_limit=False, par_factor=16):
+def get_hls_model(torch_model, graph_dims,
+                  precision='ap_fixed<16,8>', reuse=1, resource_limit=False, par_factor=16, output_dir=""):
     # forward_dict: defines the order in which graph-blocks are called in the model's 'forward()' method
     forward_dict = OrderedDict()
     forward_dict["R1"] = "EdgeBlock"
@@ -47,10 +50,14 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
     precision_str = precision_str.replace(", ", "_")
     precision_str = precision_str.replace(",", "_")
     precision_str = precision_str.replace(">", "")
-    if resource_limit:
-        output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/%s"%precision_str
+
+    if output_dir=="":
+        if resource_limit:
+            output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_dataflow/{precision_str}"
+        else:
+            output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_pipeline/{precision_str}"
     else:
-        output_dir = f"hls_output/n{graph_dims['n_node']}xe{graph_dims['n_edge']}_pipeline/%s" % precision_str
+        output_dir = os.path.join(output_dir, precision_str)
 
     config = config_from_pyg_model(torch_model,
                                    default_precision=precision,
@@ -61,7 +68,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
                                        activate_final='sigmoid',
                                        output_dir=output_dir,
                                        hls_config=config,
-                                       fpga_part='xcvu9p-flga2104-2L-e',
+                                       part='xcvu9p-flga2104-2L-e',
                                        resource_limit=resource_limit,
                                        par_factor=par_factor,
                                        **graph_dims)
@@ -69,7 +76,7 @@ def get_hls_model(torch_model, graph_dims, precision='ap_fixed<16,8>', reuse=1, 
     hls_model.compile()
     print("Model compiled at: ", hls_model.config.get_output_dir())
     print("")
-    model_config = f"aggregation: {torch_model.aggr} \nflow: {torch_model.flow} \nn_neurons: {torch_model.n_neurons} \nprecision: {precision} \ngraph_dims: {graph_dims} \nreuse_factor: {reuse}"
+    model_config = f"aggregation: {torch_model.aggr} \nflow: {torch_model.flow} \nn_neurons: {torch_model.n_neurons} \nprecision: {precision} \ngraph_dims: {graph_dims} \nreuse_factor: {reuse} \nresource_limit: {resource_limit}"
     with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as file:
         file.write(model_config)
 
@@ -128,8 +135,10 @@ def main():
     for fpb in fp_bits:
         fpib = int(fpb/2)
         precision = f"ap_fixed<{fpb}, {fpib}>"
-        hls_model, output_dir = get_hls_model(torch_model, graph_dims, precision=precision, reuse=args.reuse,
-                                                          resource_limit=args.resource_limit, par_factor=args.par_factor)
+        hls_model, output_dir = get_hls_model(torch_model, graph_dims,
+                                              precision=precision, reuse=args.reuse,
+                                              resource_limit=args.resource_limit, par_factor=args.par_factor,
+                                              output_dir=args.output_dir)
         all_output_dirs.append(output_dir)
         if not args.ssh:
             hls_model.build(csim=False, synth=True, vsynth=True)
