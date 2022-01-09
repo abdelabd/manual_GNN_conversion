@@ -12,8 +12,9 @@ def parse_args():
     add_arg = parser.add_argument
     add_arg('--dir', type=str, default='hls_output/n28xe51_manual_fpib')
     add_arg('--max-nodes', type=int, default=28)
-    add_arg('--max-edges', type=int, default=51)
+    add_arg('--max-edges', type=int, default=56)
     add_arg('--reuse', type=int, default=1)
+    add_arg('--paradigm', type=str, default='pipeline')
     add_arg('--precision', type=str, default="ap_fixed<16,8>")
     add_arg('--show-plots', action='store_true')
     return parser.parse_args()
@@ -61,13 +62,16 @@ def main():
                            'DSPs (%) V-Synth': 'DSP',
                            'FF (%) V-Synth': 'FF',
                            'CLB LUTs* (%) V-Synth': 'LUT'}
+    display = {}
+    display['pipeline'] = 'Throughput-optimized'
+    display['dataflow'] = 'Resource-optimized'
     plt.figure()
     for vname in csynth_vars:
         plt.plot(df_precision["fpb"], df_precision[vname].astype(int), label=csynth_legend_names[vname], ls='-',
-                 marker='o', lw=2)
+                 marker='o', lw=4, ms=10)
     plt.xlabel("Total bits")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\nRF = {args.reuse}")
+    plt.legend(title=f"{display[args.paradigm]}, C synth.\n{args.max_nodes} nodes, {args.max_edges} edges\nRF = {args.reuse}")
     plt.savefig(args.dir + "/scan_plots/precision_scan_resource_csynth.pdf")
     plt.savefig(args.dir + "/scan_plots/precision_scan_resource_csynth.png")
     if args.show_plots:
@@ -77,10 +81,10 @@ def main():
     plt.figure()
     for vname in vsynth_vars:
         plt.plot(df_precision["fpb"], df_precision[vname].astype(int), label=vsynth_legend_names[vname], ls='-',
-                 marker='o', lw=2)
+                 marker='o', lw=4, ms=10)
     plt.xlabel("Total bits")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, logic synth.\nRF = {args.reuse}")
+    plt.legend(title=f"{display[args.paradigm]}, logic synth.\n{args.max_nodes} nodes, {args.max_edges} edges\nRF = {args.reuse}")
     plt.savefig(args.dir + "/scan_plots/precision_scan_resource_vsynth.pdf")
     plt.savefig(args.dir + "/scan_plots/precision_scan_resource_vsynth.png")
     if args.show_plots:
@@ -88,11 +92,11 @@ def main():
     plt.close()
 
     plt.figure()
-    plt.plot(df_precision["fpb"], df_precision["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=2)
-    plt.plot(df_precision["fpb"], df_precision["II (clock cycles)"], label="II", ls='-', marker='o', lw=2)
+    plt.plot(df_precision["fpb"], df_precision["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=4, ms=10)
+    plt.plot(df_precision["fpb"], df_precision["II (clock cycles)"], label="II", ls='-', marker='o', lw=4, ms=10)
     plt.xlabel("Total bits")
     plt.ylabel("Clock cycles")
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\nRF = {args.reuse}")
+    plt.legend(title=f"{display[args.paradigm]}, C synth.\n{args.max_nodes} nodes, {args.max_edges} edges\nRF = {args.reuse}")
     plt.savefig(args.dir + "/scan_plots/precision_scan_time_csynth.pdf")
     plt.savefig(args.dir + "/scan_plots/precision_scan_time_csynth.png")
     if args.show_plots:
@@ -102,10 +106,10 @@ def main():
     plt.figure()
     for vname in csynth_vars:
         plt.plot(df_reuse["Project"], df_reuse[vname].astype(int), label=csynth_legend_names[vname], ls='-', marker='o',
-                 lw=2)
+                 lw=4, ms=10)
     plt.xlabel("Reuse factor")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\n{args.precision}")
+    plt.legend(title=f"{display[args.paradigm]}, C synth.\n{args.max_nodes} nodes, {args.max_edges} edges\n{args.precision}")
     plt.savefig(args.dir + "/scan_plots/reuse_factor_scan_resource_csynth.pdf")
     plt.savefig(args.dir + "/scan_plots/reuse_factor_scan_resource_csynth.png")
     if args.show_plots:
@@ -115,10 +119,10 @@ def main():
     plt.figure()
     for vname in vsynth_vars:
         plt.plot(df_reuse["Project"], df_reuse[vname].astype(int), label=vsynth_legend_names[vname], ls='-', marker='o',
-                 lw=2)
+                 lw=4, ms=10)
     plt.xlabel("Reuse factor")
     plt.ylabel("Resource usage [%]")
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, logic synth.\n{args.precision}")
+    plt.legend(title=f"{display[args.paradigm]}, logic synth.\n{args.max_nodes} nodes, {args.max_edges} edges\n{args.precision}")
     plt.savefig(args.dir + "/scan_plots/reuse_factor_scan_resource_vsynth.pdf")
     plt.savefig(args.dir + "/scan_plots/reuse_factor_scan_resource_vsynth.png")
     if args.show_plots:
@@ -126,11 +130,11 @@ def main():
     plt.close()
 
     plt.figure()
-    plt.plot(df_reuse["Project"], df_reuse["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=2)
-    plt.plot(df_reuse["Project"], df_reuse["II (clock cycles)"], label="II", ls='-', marker='o', lw=2)
+    plt.plot(df_reuse["Project"], df_reuse["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=4, ms=10)
+    plt.plot(df_reuse["Project"], df_reuse["II (clock cycles)"], label="II", ls='-', marker='o', lw=4, ms=10)
     plt.xlabel("Reuse factor")
     plt.ylabel("Clock cycles")
-    plt.legend(title=f"{args.max_nodes} nodes, {args.max_edges} edges, C synth.\n{args.precision}")
+    plt.legend(title=f"{display[args.paradigm]}, C synth.\n{args.max_nodes} nodes, {args.max_edges} edges\n{args.precision}")
     plt.savefig(args.dir + "/scan_plots/reuse_factor_scan_time_csynth.pdf")
     plt.savefig(args.dir + "/scan_plots/reuse_factor_scan_time_csynth.png")
     if args.show_plots:
