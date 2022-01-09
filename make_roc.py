@@ -60,6 +60,7 @@ def parse_args():
     add_arg('--max-nodes', type=int, default=112)
     add_arg('--max-edges', type=int, default=204)
     add_arg('--n-graphs', type=int, default=100)
+    add_arg('--bad-graphs', action='store_true', help='if true, truncated and padded-but-not-separate graphs are included in the performance assessment')
 
     return parser.parse_args()
 
@@ -82,7 +83,7 @@ def main():
         "node_dim": 3,
         "edge_dim": 4
     }
-    graphs = load_graphs(graph_indir, graph_dims, args.n_graphs)
+    graphs = load_graphs(graph_indir, graph_dims, args.n_graphs, include_bad_graphs=args.bad_graphs)
 
     fp_bits = np.arange(6, 20, 2)
     precisions = [f"ap_fixed<{fpb}, {int(fpb/2)}>" for fpb in fp_bits]

@@ -22,11 +22,12 @@ def parse_args():
     add_arg('--max-nodes', type=int, default=112, help='max number of nodes')
     add_arg('--max-edges', type=int, default=204, help='max number of edges')
     add_arg('--n-graphs', type=int, default=100)
+    add_arg('--bad-graphs', action='store_true', help='if true, truncated and padded-but-not-separate graphs are included in the performance assessment')
     add_arg('--precision', type=str, default='ap_fixed<16,8>', help='precision to use')
     add_arg('--reuse', type=int, default=1, help="reuse factor")
     add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
     add_arg('--par-factor', type=int, default=16, help='parallelization factor')
-    add_arg('--output-dir', type=str, default="", help='output directory')
+    add_arg('--output-dir', type=str, default="hls_output/test", help='output directory')
     add_arg('--synth',action='store_true', help='whether to synthesize')
 
     return parser.parse_args()
@@ -44,7 +45,7 @@ class data_wrapper(object):
         self.target = target
         self.np_target = np.reshape(target.detach().cpu().numpy(), newshape=(target.shape[0],))
 
-def load_graphs(graph_indir, graph_dims, n_graphs):
+def load_graphs(graph_indir, graph_dims, n_graphs, include_bad_graphs=False):
     graph_files = np.array(os.listdir(graph_indir))
     graph_files = np.array([os.path.join(graph_indir, graph_file)
                             for graph_file in graph_files])
@@ -58,8 +59,11 @@ def load_graphs(graph_indir, graph_dims, n_graphs):
                                                                              data.y,
                                                                              n_node_max=graph_dims['n_node'],
                                                                              n_edge_max=graph_dims['n_edge'])
-        if not bad_graph:
+        if include_bad_graphs:
             graphs.append(data_wrapper(node_attr, edge_attr, edge_index, target))
+        else:
+            if not bad_graph:
+                graphs.append(data_wrapper(node_attr, edge_attr, edge_index, target))
     print(f"n_graphs: {len(graphs)}")
 
     print("writing test bench data for 1st graph")
@@ -137,7 +141,7 @@ def main():
         "node_dim": 3,
         "edge_dim": 4
     }
-    graphs = load_graphs(graph_indir, graph_dims, args.n_graphs)
+    graphs = load_graphs(graph_indir, graph_dims, args.n_graphs, args.bad_graphs)
 
     # model parameters
     torch_model, hls_model, torch_wrapper = load_models(config['model'], graph_dims,
