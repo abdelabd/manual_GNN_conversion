@@ -131,10 +131,10 @@ def main():
 
     # compile all the HLS models, build each model locally if args.ssh==False
     all_output_dirs = []
-    fp_bits = np.arange(6, 20, 2)
-    for fpb in fp_bits:
-        fpib = int(fpb/2)
-        precision = f"ap_fixed<{fpb}, {fpib}>"
+    #fp_bits = np.arange(6, 20, 2)
+    fp_integer_bits = np.arange(2,10,2)
+    for fpib in fp_integer_bits:
+        precision = f"ap_fixed<10, {fpib}>"
         hls_model, output_dir = get_hls_model(torch_model, graph_dims,
                                               precision=precision, reuse=args.reuse,
                                               resource_limit=args.resource_limit, par_factor=args.par_factor,

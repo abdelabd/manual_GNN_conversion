@@ -1,6 +1,6 @@
 graph_indir: trackml_data/geometric_2GeV_phi0006_z15000_train_2-5
 model: 
-  state_dict: trained_models/IN_pyg_small_add_source_to_target_8_state_dict.pt
+  state_dict: trained_models/og_model.pt
   aggr: add
   flow: source_to_target
   n_neurons: 8

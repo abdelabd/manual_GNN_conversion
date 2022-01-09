@@ -33,8 +33,8 @@ def main():
     df_precision = df.iloc[precision_indeces].copy()
     df_precision["Project"] = [i.replace("ap_fixed_", "") for i in df_precision["Project"]]
     df_precision["Project"] = [i.replace("_", ",") for i in df_precision["Project"]]
-    df_precision["fpb"] = df_precision["Project"].str.split(',', n=1, expand=True)[0].astype(int)
-    df_precision.sort_values("fpb", ascending=True, inplace=True)
+    df_precision["fpib"] = df_precision["Project"].str.split(',', n=1, expand=True)[1].astype(int)
+    df_precision.sort_values("fpib", ascending=True, inplace=True)
     df_precision.replace('    ~0   ', 0, inplace=True)
 
     reuse_indeces = [i for i in range(df.shape[0]) if i not in precision_indeces]
@@ -67,7 +67,7 @@ def main():
     display['dataflow'] = 'Resource-optimized'
     plt.figure()
     for vname in csynth_vars:
-        plt.plot(df_precision["fpb"], df_precision[vname].astype(int), label=csynth_legend_names[vname], ls='-',
+        plt.plot(df_precision["fpib"], df_precision[vname].astype(int), label=csynth_legend_names[vname], ls='-',
                  marker='o', lw=4, ms=10)
     plt.xlabel("Total bits")
     plt.ylabel("Resource usage [%]")
@@ -80,7 +80,7 @@ def main():
 
     plt.figure()
     for vname in vsynth_vars:
-        plt.plot(df_precision["fpb"], df_precision[vname].astype(int), label=vsynth_legend_names[vname], ls='-',
+        plt.plot(df_precision["fpib"], df_precision[vname].astype(int), label=vsynth_legend_names[vname], ls='-',
                  marker='o', lw=4, ms=10)
     plt.xlabel("Total bits")
     plt.ylabel("Resource usage [%]")
@@ -92,8 +92,8 @@ def main():
     plt.close()
 
     plt.figure()
-    plt.plot(df_precision["fpb"], df_precision["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=4, ms=10)
-    plt.plot(df_precision["fpb"], df_precision["II (clock cycles)"], label="II", ls='-', marker='o', lw=4, ms=10)
+    plt.plot(df_precision["fpib"], df_precision["Latency (clock cycles)"], label="Latency", ls='-', marker='o', lw=4, ms=10)
+    plt.plot(df_precision["fpib"], df_precision["II (clock cycles)"], label="II", ls='-', marker='o', lw=4, ms=10)
     plt.xlabel("Total bits")
     plt.ylabel("Clock cycles")
     plt.legend(title=f"{display[args.paradigm]}, C synth.\n{args.max_nodes} nodes, {args.max_edges} edges\nRF = {args.reuse}")
