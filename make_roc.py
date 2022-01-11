@@ -57,10 +57,11 @@ def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='roc_config.yaml')
-    add_arg('--max-nodes', type=int, default=112)
-    add_arg('--max-edges', type=int, default=204)
+    add_arg('--max-nodes', type=int, default=113)
+    add_arg('--max-edges', type=int, default=196)
     add_arg('--n-graphs', type=int, default=100)
     add_arg('--exclude-bad-graphs', action='store_true', help='if false, truncated and padded-but-not-separate graphs are included in the performance assessment')
+    add_arg('--output-dir', type=str, default='roc_plots')
 
     return parser.parse_args()
 
@@ -72,7 +73,7 @@ def main():
     aggr = config['model']['aggr']
     flow = config['model']['flow']
     n_neurons = config['model']['n_neurons']
-    top_dir = config['output_dir']
+    top_dir = args.output_dir
     os.makedirs(top_dir, exist_ok=True)
 
     # dataset
