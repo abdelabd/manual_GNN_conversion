@@ -1,0 +1,9 @@
+graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small_test
+model: 
+  float_state_dict: trained_models/IN_pyg_small_add_source_to_target_40_state_dict.pt
+  quantized_state_dict_dir: trained_models/quantized_models/n40
+  aggr: add
+  flow: source_to_target
+  n_neurons: 40
+phi_sections: 8
+eta_sections: 2

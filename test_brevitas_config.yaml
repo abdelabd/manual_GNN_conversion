@@ -1,9 +1,9 @@
 graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small_test
 model: 
-  state_dict: trained_models/og_model.pt
+  state_dict: trained_models/quantized_models/n40/PyG_geometric_2GeV_18b.pt
   aggr: add
   flow: source_to_target
-  n_neurons: 8
+  n_neurons: 40
 phi_sections: 8
 eta_sections: 2
-output_dir: /home/abdel/IRIS_HEP/pyg_to_hls_dev/manual_GNN_conversion/roc_plots
+

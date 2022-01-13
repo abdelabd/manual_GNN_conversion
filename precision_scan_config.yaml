@@ -1,0 +1,14 @@
+model: 
+  state_dict: trained_models/og_model.pt
+  aggr: add
+  flow: source_to_target
+  n_neurons: 8
+graph_dims:
+  n_node: 28
+  n_edge: 56
+  node_dim: 3
+  edge_dim: 4
+hls_config:
+  reuse: 8
+  resource_limit: False
+  par_factor: 16

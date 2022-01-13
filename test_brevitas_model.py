@@ -4,13 +4,12 @@ import argparse
 import numpy as np
 import torch
 
-from hls4ml.utils.config import config_from_pyg_model
-from hls4ml.converters import convert_from_pyg_model
 from collections import OrderedDict
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, mean_absolute_error, mean_squared_error
 
 # locals
-from utils.models.interaction_network_pyg import InteractionNetwork
+#from utils.models.interaction_network_pyg import InteractionNetwork
+from utils.models.interaction_network_brevitas import InteractionNetwork
 from model_wrappers import model_wrapper
 from utils.data.dataset_pyg import GraphDataset
 from utils.data.fix_graph_size import fix_graph_size
@@ -19,16 +18,15 @@ def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
     add_arg('config', nargs='?', default='test_config.yaml')
+
+    add_arg('--n-graphs', type=int, default=100)
+    add_arg('--exclude-bad-graphs', action='store_true',
+            help='if false, truncated and padded-but-not-separate graphs are included in the performance assessment')
+
+    add_arg('--bit-width', type=int, default=6)
+
     add_arg('--max-nodes', type=int, default=113, help='max number of nodes')
     add_arg('--max-edges', type=int, default=196, help='max number of edges')
-    add_arg('--n-graphs', type=int, default=100)
-    add_arg('--exclude-bad-graphs', action='store_true', help='if false, truncated and padded-but-not-separate graphs are included in the performance assessment')
-    add_arg('--precision', type=str, default='ap_fixed<16,8>', help='precision to use')
-    add_arg('--reuse', type=int, default=1, help="reuse factor")
-    add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
-    add_arg('--par-factor', type=int, default=16, help='parallelization factor')
-    add_arg('--output-dir', type=str, default="hls_output/test", help='output directory')
-    add_arg('--synth',action='store_true', help='whether to synthesize')
 
     return parser.parse_args()
 
@@ -92,42 +90,7 @@ def load_models(model_config, graph_dims,
         torch_model_dict = torch.load(model_dict, map_location=torch.device('cpu'))
     torch_model.load_state_dict(torch_model_dict)
 
-    # forward_dict: defines the order in which graph-blocks are called in the model's 'forward()' method
-    forward_dict = OrderedDict()
-    forward_dict["R1"] = "EdgeBlock"
-    forward_dict["O"] = "NodeBlock"
-    forward_dict["R2"] = "EdgeBlock"
-
-    # get hls model
-    if output_dir == "":
-        output_dir = model_dict.replace("trained_models/", "hls_output/")
-        output_dir = output_dir.replace("_state_dict.pt", "")
-
-    config = config_from_pyg_model(torch_model,
-                                   default_precision=precision,
-                                   default_index_precision='ap_uint<16>', 
-                                   default_reuse_factor=reuse)
-    hls_model = convert_from_pyg_model(torch_model,
-                                       forward_dictionary=forward_dict,
-                                       **graph_dims,
-                                       activate_final="sigmoid",
-                                       output_dir=output_dir,
-                                       hls_config=config,
-                                       part='xcvu9p-flga2104-2L-e',
-                                       resource_limit=resource_limit,
-                                       par_factor=par_factor
-                                       )
-
-    hls_model.compile()
-    print("Model compiled at: ", hls_model.config.get_output_dir())
-    model_config = f"graph_dims: {graph_dims} \nprecision: {precision} \nreuse_factor: {reuse} \nresource_limit: {resource_limit}"
-    with open(hls_model.config.get_output_dir() + "//model_config.txt", "w") as file:
-        file.write(model_config)
-
-    # get torch wrapper
-    torch_wrapper = model_wrapper(torch_model)
-
-    return torch_model, hls_model, torch_wrapper
+    return torch_model
 
 def reshape_pred(target, pred):
 
@@ -147,8 +110,6 @@ def reshape_pred(target, pred):
 
     return pred_prime
 
-
-
 def main():
     args = parse_args()
     with open(args.config) as f:
@@ -165,11 +126,7 @@ def main():
     graphs = load_graphs(graph_indir, graph_dims, args.n_graphs, args.exclude_bad_graphs)
 
     # model parameters
-    torch_model, hls_model, torch_wrapper = load_models(config['model'], graph_dims,
-                                                                precision=args.precision, reuse=args.reuse,
-                                                                resource_limit=args.resource_limit,
-                                                                par_factor=args.par_factor,
-                                                                output_dir=args.output_dir)
+    torch_model = load_models(config['model'], graph_dims)
     all_torch_error = {
         "MAE": [],
         "MSE": [],
@@ -202,10 +159,6 @@ def main():
         torch_pred = reshape_pred(target, torch_pred)
         if i==0: np.savetxt('tb_data/output_predictions.dat', torch_pred.reshape(1, -1), fmt='%f', delimiter=' ')
 
-        # hls prediction
-        hls_pred = hls_model.predict(data.hls_data)
-        hls_pred = reshape_pred(target, hls_pred)
-
         # get errors
         all_torch_error["MAE"].append(mean_absolute_error(target, torch_pred))
         all_torch_error["MSE"].append(mean_squared_error(target, torch_pred))
@@ -217,51 +170,17 @@ def main():
         except ValueError:
             all_torch_error["AUC"].append(0.5) #0.5=random number generator
 
-        all_hls_error["MAE"].append(mean_absolute_error(target, hls_pred))
-        all_hls_error["MSE"].append(mean_squared_error(target, hls_pred))
-        all_hls_error["RMSE"].append(mean_squared_error(target, hls_pred, squared=False))
-        all_hls_error["Accuracy"].append(accuracy_score(target, np.round(hls_pred)))
-        all_hls_error["f1"].append(f1_score(target, np.round(hls_pred)))
-        try:
-            all_hls_error["AUC"].append(roc_auc_score(target, hls_pred))
-        except:
-            all_hls_error["AUC"].append(0.5)
 
-        all_torch_hls_diff["MAE"].append(mean_absolute_error(torch_pred, hls_pred))
-        all_torch_hls_diff["MSE"].append(mean_squared_error(torch_pred, hls_pred))
-        all_torch_hls_diff["RMSE"].append(mean_squared_error(torch_pred, hls_pred, squared=False))
-        all_torch_hls_diff["Accuracy"].append(accuracy_score(np.round(torch_pred), np.round(hls_pred)))
-        all_torch_hls_diff["f1"].append(f1_score(np.round(torch_pred), np.round(hls_pred)))
-        try:
-            all_torch_hls_diff["AUC"].append(roc_auc_score(np.round(torch_pred), hls_pred))
-        except ValueError:
-            all_torch_hls_diff["AUC"].append(0.5)
-
-        if i==len(graphs)-1:
-            wrapper_pred = torch_wrapper.forward(data) #saves intermediates
-            wrapper_pred = wrapper_pred.detach().cpu().numpy()
-            wrapper_pred = reshape_pred(target, wrapper_pred)
-            wrapper_MAE = mean_absolute_error(torch_pred, wrapper_pred)
-
-    print(f"With aggregation={torch_model.aggr}, flow={torch_model.flow}, n_neurons={torch_model.n_neurons}")
-    print(f"     single-graph wrapper-->torch MAE: {wrapper_MAE}")
+    print(f"With aggregation={config['model']['aggr']}, flow={config['model']['flow']}, n_neurons={config['model']['n_neurons']}")
     print("")
     for err_type in ["MAE", "MSE", "RMSE"]:#, "Accuracy", "f1"]:#, "MCE"]:
         print(f"     with error criteria = {err_type}:")
         print(f"          mean torch error: %s" %np.mean(all_torch_error["%s" %err_type]))
-        print(f"          mean hls error: %s" %np.mean(all_hls_error["%s" %err_type]))
-        print(f"          mean hls-->torch error: %s" %np.mean(all_torch_hls_diff["%s" %err_type]))
         print("")
     for score_type in ["Accuracy", "f1", "AUC"]:
         print(f"     with score criteria = {score_type}:")
         print(f"          mean torch score: %s" %np.mean(all_torch_error["%s"%score_type]))
-        print(f"          mean hls score: %s" %np.mean(all_hls_error["%s"%score_type]))
-        print(f"          mean hls-->torch score: %s" % np.mean(all_torch_hls_diff["%s" % score_type]))
         print("")
-
-
-    if args.synth:
-        hls_model.build(csim=False,synth=True)
 
 if __name__=="__main__":
     main()

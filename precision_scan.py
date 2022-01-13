@@ -19,21 +19,11 @@ from utils.models.interaction_network_pyg import InteractionNetwork
 def parse_args():
     parser = argparse.ArgumentParser()
     add_arg = parser.add_argument
-    add_arg('config', nargs='?', default='test_config.yaml')
+    add_arg('config', nargs='?', default='precision_scan_config.yaml')
 
-    # graph-size parameters
-    add_arg('--max-nodes', type=int, default=28, help='max number of nodes')
-    add_arg('--max-edges', type=int, default=56, help='max number of edges')
-
-    # hardware parameters
-    add_arg('--reuse', type=int, default=1, help="reuse factor")
-    add_arg('--resource-limit', action='store_true', help='if true, then dataflow version implemented, otherwise pipeline version')
-    add_arg('--par-factor', type=int, default=16, help='parallelization factor')
-
-    # build-machine parameters
+    # build parameters
     add_arg('--ssh', action='store_true', help='runs the vivado-build through ssh instead of local machine (must provide ssh details in "build_hls_config.yml"')
     add_arg('--n-jobs', type=int, default=8, help='number of jobs/scripts that can be run on the ssh in parallel')
-
     add_arg('--output-dir', type=str, default='')
 
     return parser.parse_args()
@@ -103,22 +93,17 @@ def chunkify(list, n): #converts a list into a list-of-lists, each of size <=n
     return list_out
 
 def main():
+
     # user-arguments
     args = parse_args()
     with open(args.config) as f:
         config = yaml.load(f, yaml.FullLoader)
+    model_config = config["model"]
+    graph_dims = config["graph_dims"]
+    hls_config = config["hls_config"]
 
     # torch-model parameters
-    model_config = config['model']
     aggr, flow, hidden_size = model_config['aggr'], model_config['flow'], model_config['n_neurons']
-
-    # graph-size parameters
-    graph_dims = {
-        "n_node": args.max_nodes,
-        "n_edge": args.max_edges,
-        "node_dim": 3,
-        "edge_dim": 4
-    }
 
     # get torch model
     torch_model_dict = model_config['state_dict']
@@ -129,15 +114,15 @@ def main():
     torch_model = InteractionNetwork(aggr=aggr, flow=flow, hidden_size=hidden_size)
     torch_model.load_state_dict(torch_model_dict)
 
-    # compile all the HLS models, build each model locally if args.ssh==False
+    # compile all the HLS models, build each model locally if config["ssh"]==False
     all_output_dirs = []
-    fp_bits = np.arange(6, 20, 2)
-    for fpb in fp_bits:
-        fpib = int(fpb/2)
-        precision = f"ap_fixed<{fpb}, {fpib}>"
+
+    fp_integer_bits = np.arange(2,10,2)
+    for fpib in fp_integer_bits:
+        precision = f"ap_fixed<10, {fpib}>"
         hls_model, output_dir = get_hls_model(torch_model, graph_dims,
-                                              precision=precision, reuse=args.reuse,
-                                              resource_limit=args.resource_limit, par_factor=args.par_factor,
+                                              precision=precision, reuse=hls_config["reuse"],
+                                              resource_limit=hls_config["resource_limit"], par_factor=hls_config["par_factor"],
                                               output_dir=args.output_dir)
         all_output_dirs.append(output_dir)
         if not args.ssh:
