@@ -15,7 +15,44 @@ from tqdm import tqdm
 # locals
 from utils.models.interaction_network_pyg import InteractionNetwork as InteractionNetwork_float
 from utils.models.interaction_network_brevitas import InteractionNetwork as InteractionNetwork_quantized
-from test_model import data_wrapper, load_graphs, reshape_pred
+from utils.data.dataset_pyg import GraphDataset
+from utils.data.fix_graph_size import fix_graph_size
+from test_model import data_wrapper, reshape_pred
+
+def load_graphs(graph_indir, graph_dims, n_graphs, exclude_bad_graphs=False):
+    graph_files = np.array(os.listdir(graph_indir))
+    graph_files = np.array([os.path.join(graph_indir, graph_file)
+                            for graph_file in graph_files])
+    n_graphs_total = len(graph_files)
+    IDs = np.arange(n_graphs_total)
+    dataset = GraphDataset(graph_files=graph_files[IDs])
+
+    graphs = []
+    for data in dataset[:n_graphs]:
+        later = """
+        node_attr, edge_attr, edge_index, target, bad_graph = fix_graph_size(data.x, data.edge_attr, data.edge_index,
+                                                                             data.y,
+                                                                             n_node_max=graph_dims['n_node'],
+                                                                             n_edge_max=graph_dims['n_edge'])
+        
+        if exclude_bad_graphs:
+            if not bad_graph:
+                graphs.append(data_wrapper(node_attr, edge_attr, edge_index, target))
+        else:
+            graphs.append(data_wrapper(node_attr, edge_attr, edge_index, target))"""
+        graphs.append(data_wrapper(data.x, data.edge_attr, data.edge_index, data.y))
+
+    print(f"n_graphs: {len(graphs)}")
+
+    print("writing test bench data for 1st graph")
+    data = graphs[0]
+    node_attr, edge_attr, edge_index = data.x.detach().cpu().numpy(), data.edge_attr.detach().cpu().numpy(), data.edge_index.transpose(
+        0, 1).detach().cpu().numpy().astype(np.int32)
+    os.makedirs('tb_data', exist_ok=True)
+    input_data = np.concatenate([node_attr.reshape(1, -1), edge_attr.reshape(1, -1), edge_index.reshape(1, -1)], axis=1)
+    np.savetxt('tb_data/input_data.dat', input_data, fmt='%f', delimiter=' ')
+
+    return graphs
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -81,7 +118,7 @@ def main():
 
         # Get quantized model
         quantized_model = InteractionNetwork_quantized(aggr=aggr, flow=flow, hidden_size=n_neurons, bit_width=int(bw))
-        quantized_model_dict = os.path.join(config['model']['quantized_state_dict_dir'], f"PyG_geometric_2GeV_{bw}b.pt")
+        quantized_model_dict = os.path.join(config['model']['quantized_state_dict_dir'], f"train1_PyG_geometric_2GeV_{bw}b.pt")
         try:
             quantized_model_dict = torch.load(quantized_model_dict)
         except RuntimeError:
