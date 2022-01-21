@@ -1,0 +1,9 @@
+graph_indir: /home/abdel/IRIS_HEP/trackml_data/processed_plus_pyg_small_test
+model:
+  torch_state_dict: trained_models/og_model.pt
+  quantized_state_dict_dir: trained_models/quantized_models/best_quantized_models_3
+  aggr: add
+  flow: source_to_target
+  n_neurons: 8
+phi_sections: 8
+eta_sections: 2
