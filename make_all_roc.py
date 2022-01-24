@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 import mplhep as hep
 
@@ -254,17 +255,22 @@ def main():
 
     # Plot
     plt.figure()
-    plt.plot(fp_total_bits, [auc_hls_small[precision] for precision in precisions], color='blue', linestyle=':', label="HLS4ML (PTQ), 113x196", lw=4, ms=10)#, marker='o')
-    plt.plot(fp_total_bits, [auc_hls_large[precision] for precision in precisions], color='blue', linestyle='-', label="HLS4ML (PTQ), 448x896", lw=4, ms=10)#, marker='o')
-    plt.plot(bit_widths, [auc_quantized_small[bw] for bw in bit_widths], color='red', linestyle=':', label="Brevitas (QAT), 113x196", lw=4, ms=10)#, marker='o')
-    plt.plot(bit_widths, [auc_quantized_large[bw] for bw in bit_widths], color='red', linestyle='-', label="Brevitas (QAT), 448x896", lw=4, ms=10)#, marker='o')
-    plt.plot(bit_widths, [auc_torch_small for bw in bit_widths], color='gray', linestyle=':', label="Torch (floating-point), 113x196", lw=4, ms=10) #linestyle='--', color='gray', )
-    plt.plot(bit_widths, [auc_torch_large for bw in bit_widths], color='gray', linestyle='-', label="Torch (floating-point), 448x896", lw=4, ms=10)#linestyle='--', color='gray', )
+    plt.plot(bit_widths, [auc_torch_small for bw in bit_widths], color='gray', linestyle='-', label="PyG (expected)", lw=4, ms=10)
+    plt.plot(bit_widths, [auc_torch_large for bw in bit_widths], color='gray', linestyle='--', lw=4, ms=10)
+    plt.plot(fp_total_bits, [auc_hls_small[precision] for precision in precisions], color='tab:blue', linestyle='-', label="hls4ml (PTQ)", lw=4, ms=10, marker='o')
+    plt.plot(fp_total_bits, [auc_hls_large[precision] for precision in precisions], color='tab:blue', linestyle='--', lw=4, ms=10, marker='o')
+    plt.plot(bit_widths, [auc_quantized_small[bw] for bw in bit_widths], color='tab:orange', linestyle='-', label="Brevitas (QAT)", lw=4, ms=10, marker='o')
+    plt.plot(bit_widths, [auc_quantized_large[bw] for bw in bit_widths], color='tab:orange', linestyle='--', lw=4, ms=10, marker='o')
     plt.xlabel('Total bits')
     plt.ylabel('AUC [%]')
+    lines = [Line2D([0], [0], color='k', ls='-', lw=4, label="113 nodes, 196 edges"),
+             Line2D([0], [0], color='k', ls='--', lw=4, label='Full graphs')]
+    legend1 = plt.legend(handles=lines, loc='lower left')
+    plt.gca().add_artist(legend1)
     plt.legend(
-        title=f"{config['phi_sections']} $\phi$ sectors, {config['eta_sections']} $\eta$ sectors")
+        title=f"{config['phi_sections']} $\phi$ sectors, {config['eta_sections']} $\eta$ sectors\n7 integer bits")
     plt.tight_layout()
+    plt.ylim([39, 103])
     plt.savefig(os.path.join(top_dir, "AUC.png"))
     plt.savefig(os.path.join(top_dir, "AUC.pdf"))
     plt.close()
