@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # ROC curves
-python make_roc.py test_config.yaml --max-nodes 113 --max-edges 196 --n-graphs 1000
+python make_int_scan_roc.py roc_pqt_qat_config.yaml --n-graphs=1000 --output-dir=roc_plots_int
+python make_all_roc.py roc_pqt_qat_config.yaml --n-graphs=1000 --output-dir=roc_plots
 python make_roc.py test_config_1GeV.yaml --max-nodes 162 --max-edges 326 --n-graphs 1000
 
 # extract scan data
