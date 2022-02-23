@@ -87,16 +87,16 @@ def build_command(output_dir):
     command = build_template.format(output_dir=output_dir)
     os.system(command)
 
-def chunkify(list, n): #converts a list into a list-of-lists, each of size <=n
+def chunkify(list_0, n): #converts a list into a list-of-lists, each of size <=n
     list_out = []
     idx_start = 0
     all_members_accounted = False
     while not all_members_accounted:
-        idx_stop = min([idx_start+n, len(list)])
-        list_i = list[idx_start:idx_stop]
+        idx_stop = min([idx_start+n, len(list_0)])
+        list_i = list_0[idx_start:idx_stop]
         list_out.append(list_i)
 
-        if idx_stop >= len(list):
+        if idx_stop >= len(list_0):
             all_members_accounted = True
         else:
             idx_start += n
